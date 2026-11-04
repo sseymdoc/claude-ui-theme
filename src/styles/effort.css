@@ -1,0 +1,422 @@
+/* ── Claude UI · 努力强度滑块 ─────────────────────────────────────────────
+   移植自 codex-ui composer.css 的 .effort-*（c8e04f916 EffortControl + c2d9b9a76 Slider），组件见
+   src/effort/slider.tsx。尺寸取原版 compact 密度的值：控件高 24、圆角 6、gap xs / sm / lg = 6 / 8 / 20、
+   正文 13/19、脚注 12/15。 */
+
+/* 区块：标题行、「速度更快 … 更智能」、滑块，纵向 gap-lg。放在菜单里时内容离菜单边缘 8px。 */
+:root .cx-effort-section {
+  /* 焦点环（原 --cds-focus-shadow）：1px 弹层底色、1px 强调色、6px 光晕 */
+  --cx-effort-focus: inset 0 0 0 1px var(--cx-popover), 0 0 0 1px var(--ui-accent), 0 0 6px 1px color-mix(in srgb, var(--ui-accent) 30%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 8px;
+  user-select: none;
+}
+
+/* 单独放进一个弹层时，给弹层加 cx-effort-pop：220 宽、无内边距，区块自己留 12px */
+:root .cx-effort-pop {
+  width: 220px;
+  min-width: 0;
+  padding: 0;
+}
+
+:root .cx-effort-pop .cx-effort-section {
+  padding: 12px;
+}
+
+/* 标题行也是警告悬停卡的定位基准 */
+:root .cx-effort-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+:root .cx-effort-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+:root .cx-effort-title > :first-child {
+  flex: none;
+  color: var(--ui-text-tertiary);
+}
+
+:root .cx-effort-names {
+  position: relative;
+  min-width: 0;
+}
+
+/* 档位名（c8e04f916 S）：清晰的那层在文档流里，几层模糊副本叠在上面（plus-lighter，静止时看不见），
+   每层都会截断；动画由 EffortName 驱动。正在退场的那个脱离文档流，留在原处。 */
+:root .cx-effort-name {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  min-width: 0;
+}
+
+:root .cx-effort-name[data-leaving] {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+:root .cx-effort-name > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root .cx-effort-name > span + span {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  mix-blend-mode: plus-lighter;
+  pointer-events: none;
+}
+
+:root .cx-effort-name[data-pro] {
+  color: var(--cx-pro);
+  font-weight: 500;
+}
+
+:root .cx-effort-help {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--ui-text-tertiary);
+  transition: box-shadow var(--cx-dur-fast) ease-out;
+}
+
+:root .cx-effort-help:hover,
+:root .cx-effort-help:focus-visible {
+  color: var(--ui-text-primary);
+}
+
+:root .cx-effort-help:focus-visible {
+  box-shadow: var(--cx-effort-focus);
+}
+
+/* 悬停卡：「?」的档位说明与 max 的用量警告。220 宽，停 200ms 后在上方 8px 处浮出；
+   说明卡与「?」的外端对齐，警告卡与标题行的起端对齐。 */
+:root .cx-effort-help-card,
+:root .cx-effort-warn-card {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 220px;
+  padding: 12px;
+  border-radius: var(--cx-radius-card);
+  background: var(--cx-popover);
+  box-shadow: var(--cx-edge), var(--cx-shadow-popover);
+  color: var(--ui-text-primary);
+  font-size: 12px;
+  line-height: 15px;
+  text-align: start;
+  white-space: normal;
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity var(--cx-dur-snap) var(--cx-ease-snap),
+    visibility 0s linear var(--cx-dur-snap);
+}
+
+:root .cx-effort-help-card {
+  right: -12px;
+}
+
+:root .cx-effort-warn-card {
+  left: -12px;
+}
+
+:root .cx-effort-help:hover .cx-effort-help-card,
+:root .cx-effort-help:focus-visible .cx-effort-help-card,
+:root .cx-effort-warn:hover .cx-effort-warn-card {
+  visibility: visible;
+  opacity: 1;
+  transition:
+    opacity var(--cx-dur-snap) var(--cx-ease-snap) 0.2s,
+    visibility 0s linear 0.2s;
+}
+
+:root .cx-effort-help-card > :first-child {
+  font-weight: 500;
+}
+
+:root .cx-effort-help-card > :last-child {
+  color: var(--ui-text-tertiary);
+  overflow-wrap: break-word;
+}
+
+:root .cx-effort-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+:root .cx-effort-ends {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ui-text-tertiary);
+  font-size: 12px;
+  line-height: 15px;
+}
+
+/* 滑块（c2d9b9a76）：一个控件高；轨道上下各内缩 2px，10% 墨色，填充到手柄为 20%（暗色 35%）；
+   3px 的档位点（推荐档是 3×9 的竖线）排在内缩 h/2 − 2px 的一行上；手柄 (h − 8) × (h − 4)，白色，
+   一圈细环加一层投影，按住时放大 1.12。手柄和填充滑到每一档（snap、ease-out），拖动时按 --lean
+   朝指针探身。 */
+:root .cx-effort-slider {
+  --slider-track: var(--cx-line);
+  --slider-fill: var(--cx-line-strong);
+  --slider-stop: rgb(11 11 11 / 25%);
+  --slider-handle: #fff;
+  --slider-handle-ring: rgb(11 11 11 / 4%);
+  --slider-handle-depth: rgb(11 11 11 / 6%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+:root.dark .cx-effort-slider {
+  --slider-fill: rgb(255 255 255 / 35%);
+  --slider-stop: rgb(255 255 255 / 25%);
+  --slider-handle-ring: rgb(255 255 255 / 0%);
+  --slider-handle-depth: rgb(11 11 11 / 24%);
+}
+
+:root .cx-effort-track {
+  --h: 24px;
+  --inset: calc((var(--h) - 8px) / 2);
+  position: relative;
+  height: var(--h);
+  container-type: inline-size;
+}
+
+:root .cx-effort-track::before,
+:root .cx-effort-fill,
+:root .cx-effort-charge {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 0;
+  bottom: 2px;
+  left: 0;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+:root .cx-effort-track::before {
+  background: var(--slider-track);
+}
+
+/* 填充就是轨道本身的形状，在手柄中心处裁掉；它以 4 倍速从 0 长到手柄中心，最低档便一点也不露
+   （c2d9b9a76 min(pos·b, 4·pos·b − inset)）。单独一个盒子的话，在最低档会有半个手柄宽，圆角被
+   手柄的圆角挤着，角上会露出来。 */
+:root .cx-effort-fill,
+:root .cx-effort-charge {
+  clip-path: inset(0 calc(100% - min(var(--inset) + var(--pos) * (100% - 2 * var(--inset)), 4 * var(--pos) * (100% - 2 * var(--inset))) - var(--lean, 0px)) 0 0);
+}
+
+:root .cx-effort-fill {
+  background: var(--slider-fill);
+  transition: clip-path var(--cx-dur-snap) var(--cx-ease-out);
+}
+
+:root .cx-effort-stops {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 calc(var(--h) / 2 - 2px);
+  pointer-events: none;
+}
+
+:root .cx-effort-stops > span {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--slider-stop);
+}
+
+:root .cx-effort-stops > [data-mark] {
+  height: 9px;
+}
+
+:root .cx-effort-range {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: var(--h);
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+}
+
+/* 焦点环由手柄来画，range 自己不画 */
+:root .cx-effort-range:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+:root .cx-effort-range::-webkit-slider-runnable-track {
+  height: var(--h);
+  background: transparent;
+}
+
+/* 原生拇指只负责接住指针，画出来的是 .cx-effort-handle（滑架） */
+:root .cx-effort-range::-webkit-slider-thumb {
+  width: calc(var(--h) - 8px);
+  height: calc(var(--h) - 4px);
+  margin-top: 2px;
+  border: 0;
+  background: transparent;
+  appearance: none;
+}
+
+/* 用 translate 而不是 transform，1.12 的缩放才不会把位移一起放大 */
+:root .cx-effort-handle {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  z-index: 1;
+  width: calc(var(--h) - 8px);
+  height: calc(var(--h) - 4px);
+  border-radius: 6px;
+  background: var(--slider-handle);
+  box-shadow:
+    0 0 0 1px var(--slider-handle-ring),
+    0 0 12px var(--slider-handle-depth);
+  pointer-events: none;
+  translate: calc(var(--pos) * (100cqw - 2 * var(--inset)) + var(--lean, 0px));
+  transition:
+    translate var(--cx-dur-snap) var(--cx-ease-out),
+    scale var(--cx-dur-snap) var(--cx-overshoot);
+}
+
+:root .cx-effort-range:active + .cx-effort-handle {
+  scale: 1.12;
+}
+
+:root .cx-effort-range:focus-visible + .cx-effort-handle {
+  box-shadow:
+    0 0 0 1px var(--slider-handle-ring),
+    0 0 12px var(--slider-handle-depth),
+    var(--cx-effort-focus);
+}
+
+/* 推荐档的标记在它正下方（脚注字号；停在该档时用 secondary 色） */
+:root .cx-effort-mark {
+  position: relative;
+  height: 15px;
+  margin: 0 11.5px;
+  color: var(--ui-text-tertiary);
+  font-size: 12px;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+:root .cx-effort-mark > span {
+  position: absolute;
+  left: calc(var(--mark) * 100%);
+  translate: -50% 0;
+}
+
+:root .cx-effort-mark[data-on] {
+  color: var(--ui-text-secondary);
+}
+
+/* max：档位名后一个警告图标（12px），警告本身是它的悬停卡 */
+:root .cx-effort-warn {
+  display: inline-flex;
+  flex: none;
+  color: var(--cx-warning);
+}
+
+:root .cx-effort-warn > .codicon {
+  font-size: 12px;
+}
+
+:root .cx-effort-desc {
+  display: none;
+  color: var(--ui-text-tertiary);
+  font-size: 12px;
+  line-height: 15px;
+  overflow-wrap: break-word;
+}
+
+@media (pointer: coarse) {
+  :root .cx-effort-help {
+    display: none;
+  }
+
+  :root .cx-effort-desc {
+    display: block;
+  }
+}
+
+/* 充能（W22 yK），这里每一档都有：轨道多一层弹层底色 + 10% 墨色的底板（淡入 700ms ease-out，
+   淡出 850ms linear），上面一块 3px 方格、4px 网格的画布，在手柄跨度的 45% 内由透明渐到不透明
+   （暗色 60%，并以 plus-lighter 0.65 叠加；遮罩由着色器做，因为跨度会动）。它跟填充一起裁切
+   （c2d9b9a76 overlay），所以随手柄一起缩回；画布保持轨道的宽度（100cqw）。场是 Hermes 蓝，
+   各档的滤镜（--charge）给它上色，换档时从一档过渡到下一档。 */
+:root .cx-effort-charge {
+  overflow: hidden;
+  background: linear-gradient(var(--cx-line), var(--cx-line)), var(--cx-popover);
+  opacity: 0;
+  transition:
+    clip-path var(--cx-dur-snap) var(--cx-ease-out),
+    opacity 850ms linear;
+}
+
+:root .cx-effort-charge[data-on] {
+  opacity: 1;
+  transition:
+    clip-path var(--cx-dur-snap) var(--cx-ease-out),
+    opacity 700ms ease-out;
+}
+
+/* 滤镜过渡 300ms（原 --cds-dur-sheet） */
+:root .cx-effort-charge canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100cqw;
+  height: 100%;
+  filter: var(--charge);
+  transition: filter 300ms var(--cx-ease-out);
+}
+
+:root.dark .cx-effort-charge canvas {
+  mix-blend-mode: plus-lighter;
+  opacity: 0.65;
+}
+
+/* 减弱动效时没有场：填充自己上该档的颜色。滤镜是照亮色基色 #1f5fe0 解的，两套主题都用它
+   （原版同样在两套主题里写死 #8964c4）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root .cx-effort-fill {
+    background: #1f5fe0;
+    filter: var(--charge);
+  }
+}

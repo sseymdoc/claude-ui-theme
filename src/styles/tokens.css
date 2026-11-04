@@ -1,0 +1,191 @@
+/* ── Claude UI · tokens ───────────────────────────────────────────────────
+   Hermes 的表面色由种子色 color-mix 推导（styles.css @layer base）。这里不分层，
+   直接把推导结果钉回设计值，并去掉强调色在中性填充和描边里的掺色：
+   codex-ui 的层次只靠墨色透明度，蓝色只留给交互与 Hermes 的品牌元素。 */
+
+:root {
+  --radius-scalar: 0.4;
+
+  --ui-bg-chrome: var(--theme-background-seed);
+  --ui-bg-sidebar: var(--theme-sidebar-seed);
+  --ui-bg-editor: var(--theme-card-seed);
+  --ui-bg-elevated: var(--theme-elevated-seed);
+  --ui-chat-bubble-background: var(--theme-bubble-seed);
+  --ui-widget-surface-background: var(--theme-card-seed);
+
+  --theme-fill-primary-accent-mix: 0%;
+  --theme-fill-secondary-accent-mix: 0%;
+  --theme-fill-tertiary-accent-mix: 0%;
+  --theme-fill-quaternary-accent-mix: 0%;
+  --theme-fill-quinary-accent-mix: 0%;
+  --theme-stroke-primary-accent-mix: 0%;
+  --theme-stroke-secondary-accent-mix: 0%;
+  --theme-stroke-tertiary-accent-mix: 0%;
+  --theme-stroke-quaternary-accent-mix: 0%;
+  --theme-row-hover-accent-mix: 0%;
+  --theme-row-active-accent-mix: 0%;
+  --theme-control-hover-accent-mix: 0%;
+  --theme-control-active-accent-mix: 0%;
+
+  --ui-blue: var(--theme-primary);
+
+  /* codex-ui 动效（tokens.css:235-247） */
+  --cx-dur-fast: 60ms;
+  --cx-dur-snap: 120ms;
+  --cx-dur-base: 200ms;
+  --cx-dur-sheet: 300ms;
+  --cx-dur-slow: 450ms;
+  --cx-ease-out: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --cx-ease-snap: cubic-bezier(0.32, 0.72, 0, 1);
+  --cx-overshoot: cubic-bezier(0.34, 1.3, 0.64, 1);
+
+  /* 本插件自己的组件与重塑规则共用的几个量 */
+  --cx-surface: var(--ui-bg-editor);
+  --cx-popover: var(--ui-bg-elevated);
+  --cx-hover: color-mix(in srgb, var(--ui-base) 5%, transparent);
+  --cx-selected: color-mix(in srgb, var(--ui-base) 10%, transparent);
+  --cx-line: color-mix(in srgb, var(--ui-base) 10%, transparent);
+  --cx-line-strong: color-mix(in srgb, var(--ui-base) 20%, transparent);
+  --cx-edge: 0 0 0 1px var(--cx-line);
+  --cx-edge-strong: 0 0 0 1px var(--cx-line-strong);
+  --cx-shadow-popover: 0 8px 24px #0000001f, 0 2px 6px #00000014;
+  --cx-shadow-dialog: 0 4px 8px #0b0b0b14, 0 12px 28px -2px #0b0b0b14;
+  --cx-shadow-composer: 0 0.25rem 1.25rem color-mix(in srgb, #000 3.5%, transparent);
+  --cx-shadow-composer-focus: 0 0.25rem 1.25rem color-mix(in srgb, #000 7.5%, transparent);
+  --cx-radius-control: 4px;
+  --cx-radius-card: 6px;
+  --cx-radius-dock: 10px;
+}
+
+:root:not(.dark) {
+  --ui-text-primary: #0b0b0b;
+  --ui-text-secondary: #52514e;
+  --ui-text-tertiary: #898781;
+  --ui-text-quaternary: color-mix(in srgb, #0b0b0b 35%, transparent);
+  --conversation-scaffold-text: #898781;
+  --conversation-scaffold-meta: color-mix(in srgb, #0b0b0b 35%, transparent);
+
+  --ui-row-hover-background: color-mix(in srgb, #0b0b0b 4.5%, transparent);
+  --ui-row-active-background: color-mix(in srgb, #0b0b0b 7%, transparent);
+  --ui-control-hover-background: color-mix(in srgb, #0b0b0b 5%, transparent);
+  --ui-control-active-background: color-mix(in srgb, #0b0b0b 8%, transparent);
+
+  --ui-red: #d03b3b;
+  --ui-green: #1e9e3c;
+  --ui-yellow: #c98a00;
+  --ui-orange: #c5621b;
+  --ui-purple: #7161e0;
+  --ui-diff-add-border: #1e9e3c;
+  --ui-diff-add-background: color-mix(in srgb, #1e9e3c 14%, transparent);
+  --ui-diff-add-foreground: #157a2e;
+  --ui-diff-remove-border: #cd2054;
+  --ui-diff-remove-background: color-mix(in srgb, #cd2054 12%, transparent);
+  --ui-diff-remove-foreground: #a8173f;
+
+  --ui-inline-code-background: color-mix(in srgb, #0b0b0b 5%, transparent);
+  --ui-inline-code-foreground: #8e2626;
+  --ui-selection-background: color-mix(in srgb, #1f5fe0 20%, transparent);
+  --dt-scrollbar-thumb: rgb(30 30 29 / 35%);
+
+  --cx-warning: #734500;
+  --cx-warning-fill: #fab219;
+  --cx-warning-bg: #f9dca4;
+  --cx-danger: #8e2626;
+  --cx-success: #006300;
+  --cx-pro: #4a3aa7;
+  --cx-pro-fill: #7161e0;
+  --cx-git-add: #1e9e3c;
+  --cx-git-remove: #cd2054;
+}
+
+:root.dark {
+  --ui-text-primary: #f0efec;
+  --ui-text-secondary: #c3c2b7;
+  --ui-text-tertiary: #898781;
+  --ui-text-quaternary: color-mix(in srgb, #ffffff 35%, transparent);
+  --conversation-scaffold-text: #898781;
+  --conversation-scaffold-meta: color-mix(in srgb, #ffffff 35%, transparent);
+
+  --ui-row-hover-background: color-mix(in srgb, #ffffff 7.5%, transparent);
+  --ui-row-active-background: color-mix(in srgb, #ffffff 11%, transparent);
+  --ui-control-hover-background: color-mix(in srgb, #ffffff 7.5%, transparent);
+  --ui-control-active-background: color-mix(in srgb, #ffffff 12%, transparent);
+
+  --ui-red: #ec7e7e;
+  --ui-green: #32d74b;
+  --ui-yellow: #db9300;
+  --ui-orange: #fa832e;
+  --ui-purple: #a096eb;
+  --ui-diff-add-border: #32d74b;
+  --ui-diff-add-background: color-mix(in srgb, #32d74b 16%, transparent);
+  --ui-diff-add-foreground: color-mix(in srgb, #32d74b 70%, #fff);
+  --ui-diff-remove-border: #ff2c56;
+  --ui-diff-remove-background: color-mix(in srgb, #ff2c56 16%, transparent);
+  --ui-diff-remove-foreground: color-mix(in srgb, #ff2c56 62%, #fff);
+
+  --ui-inline-code-background: color-mix(in srgb, #ffffff 7%, transparent);
+  --ui-inline-code-foreground: #ec7e7e;
+  --ui-selection-background: color-mix(in srgb, #7aa2ff 28%, transparent);
+  --dt-scrollbar-thumb: rgb(225 224 217 / 35%);
+
+  --cx-hover: color-mix(in srgb, #ffffff 7.5%, transparent);
+  --cx-selected: color-mix(in srgb, #ffffff 15%, transparent);
+  --cx-edge: inset 0 0 0 1px var(--cx-line);
+  --cx-edge-strong: inset 0 0 0 1px var(--cx-line-strong);
+  --cx-shadow-popover: 0 8px 24px #0000003d, 0 2px 6px #00000029;
+  --cx-shadow-dialog: 0 4px 8px #0000003d, 0 12px 28px -2px #0000003d;
+
+  --cx-warning: #db9300;
+  --cx-warning-fill: #fab219;
+  --cx-warning-bg: #311a00;
+  --cx-danger: #ec7e7e;
+  --cx-success: #0ca30c;
+  --cx-pro: #a096eb;
+  --cx-pro-fill: #7161e0;
+  --cx-git-add: #32d74b;
+  --cx-git-remove: #ff2c56;
+}
+
+/* codex-ui 的文字高光（base.css:1615 / tokens.css:963）：3s 一次，首尾各停 15%。
+   覆盖 Hermes 的 tw-shimmer，让工作行、运行中工具行用同一种光。 */
+@keyframes cx-shimmer {
+  0%,
+  15% {
+    background-position: 83.333% 0;
+    animation-timing-function: cubic-bezier(0.714, 0.121, 0.211, 0.888);
+  }
+  85%,
+  100% {
+    background-position: 16.667% 0;
+  }
+}
+
+@keyframes cx-breathe {
+  0%,
+  100% {
+    filter: brightness(0.96);
+    transform: scale(0.86);
+  }
+  50% {
+    filter: brightness(1.06);
+    transform: scale(1);
+  }
+}
+
+@keyframes cx-blink {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root .shimmer,
+  :root .cx-shimmer,
+  :root [data-cx-breathe] {
+    animation: none !important;
+  }
+}

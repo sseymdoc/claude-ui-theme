@@ -1,0 +1,201 @@
+/* ── Claude UI · composer 与停靠卡 ───────────────────────────────────────
+   输入框：不透明卡面 + 一圈墨色细环 + 3.5% 软阴影，聚焦时阴影加深（codex-ui composer.css:301）。
+   审批卡、提问卡：从消息流里「停靠」到输入框正上方 6px，与输入框同宽，滚动时吸住不走。 */
+
+/* 消息视口的底边比输入框卡面顶边低 (composer 测量高度 − 1.125rem − 3px)，再留 6px 缝。
+   测量值内联在每个 [data-chat-surface] 上，所以这个量也必须在那里求值。 */
+:root [data-chat-surface] {
+  --cx-dock-offset: calc(var(--composer-measured-height, 48px) - 1.125rem + 9px);
+}
+
+:root [data-slot='composer-root'],
+:root [data-slot='composer-root'][data-thread-scrolled-up] {
+  --composer-fill: var(--cx-popover);
+}
+
+:root [data-slot='composer-surface'] {
+  border-color: var(--cx-line) !important;
+  box-shadow: var(--cx-shadow-composer);
+  transition:
+    box-shadow var(--cx-dur-base) cubic-bezier(0.4, 0, 0.2, 1),
+    border-color var(--cx-dur-snap) ease-out;
+}
+
+:root [data-slot='composer-surface']:hover {
+  border-color: var(--cx-line-strong) !important;
+}
+
+:root [data-slot='composer-root']:focus-within [data-slot='composer-surface'] {
+  box-shadow: var(--cx-shadow-composer-focus);
+}
+
+/* 选择器行：模型、推理强度用 secondary 色，hover 才到 primary */
+:root [data-slot='composer-root'] :is([data-tour='model-pill'], [data-testid='reasoning-pill'], [aria-label='Open model picker']) {
+  color: var(--ui-text-secondary);
+}
+
+:root [data-slot='composer-root'] :is([data-tour='model-pill'], [data-testid='reasoning-pill'], [aria-label='Open model picker']):hover {
+  color: var(--ui-text-primary);
+}
+
+/* ── 停靠：有待处理的审批或提问时，消息底部只给它们留出卡片到输入框的距离 ── */
+:root [data-chat-surface]:has([data-slot='tool-approval-stack'], form[data-clarify-batch]:not([data-clarify-batch-preview])) {
+  --thread-last-message-clearance: var(--cx-dock-offset) !important;
+}
+
+/* 与输入框卡面左右对齐：内容列左右各有 24px 内边距、右侧多 8px 滚动条槽位；输入框左右各内缩 1rem */
+:root [data-slot='tool-approval-stack'] {
+  position: sticky;
+  bottom: var(--cx-dock-offset);
+  z-index: 30;
+  width: calc(100% + 24px);
+  max-width: none;
+  margin-left: -8px;
+}
+
+:root [data-slot='aui_assistant-message-root']:has(form[data-clarify-batch]:not([data-clarify-batch-preview])),
+:root [data-slot='aui_assistant-message-content']:has(> form[data-clarify-batch]:not([data-clarify-batch-preview])) {
+  overflow: visible;
+}
+
+:root form[data-clarify-batch]:not([data-clarify-batch-preview]) {
+  position: sticky;
+  bottom: var(--cx-dock-offset);
+  z-index: 30;
+  width: calc(100% + 36px);
+  /* 回合容器底部还有 5px 留白，吃掉它，提问卡与审批卡离输入框都是 6px */
+  margin: 0.5rem 0 -5px -20px;
+}
+
+/* ── 审批卡（codex-ui approval-card）── */
+/* 活动摘要行与消息正文的缩进对齐 */
+:root [data-slot='tool-approval-stack'] [data-approval-activity] {
+  padding-left: 20px;
+}
+
+:root [data-slot='tool-approval-stack'] :is([data-slot='card-stack-surface'], [data-slot='card-stack-edge']) {
+  border-color: transparent;
+  border-radius: var(--cx-radius-dock);
+  background: var(--cx-popover);
+  box-shadow: var(--cx-edge), var(--cx-shadow-composer);
+}
+
+:root [data-slot='tool-approval-stack'] [data-slot='card-stack-edge'] {
+  background: var(--cx-surface);
+  box-shadow: var(--cx-edge);
+}
+
+:root [data-slot='tool-approval-card'] {
+  padding: 6px 4px 2px;
+}
+
+:root [data-slot='tool-approval-card'] > div:first-child {
+  color: var(--ui-text-primary);
+  font-weight: 500;
+}
+
+:root [data-slot='tool-approval-card'] > pre {
+  margin: 6px 10px 4px;
+  padding: 8px 12px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ui-base) 5%, transparent);
+  color: var(--ui-text-secondary);
+}
+
+/* ── 停靠卡里的主按钮与发送键同色（墨色），次按钮是带细环的近透明底 ── */
+:root :is([data-slot='tool-approval-actions'], form[data-clarify-batch]) [data-slot='button'][data-variant='default'] {
+  border-color: transparent;
+  background: var(--ui-text-primary);
+  color: var(--ui-bg-chrome);
+}
+
+:root :is([data-slot='tool-approval-actions'], form[data-clarify-batch]) [data-slot='button'][data-variant='default']:hover {
+  background: color-mix(in srgb, var(--ui-text-primary) 86%, var(--ui-bg-chrome));
+}
+
+:root [data-slot='tool-approval-actions'] [data-variant='secondary'] {
+  border-color: transparent;
+  background: color-mix(in srgb, #fff 10%, transparent);
+  box-shadow: inset 0 0 0 1px var(--cx-line), 0 1px 2px #0000000d;
+  color: var(--ui-text-primary);
+}
+
+:root [data-slot='tool-approval-actions'] [data-variant='secondary']:hover {
+  background: var(--cx-hover);
+}
+
+:root :is([data-slot='tool-approval-actions'], form[data-clarify-batch]) [data-slot='button'] {
+  border-radius: var(--cx-radius-control);
+}
+
+/* ── 提问卡（codex-ui question card）：整张 form 当卡面，按钮收进卡片底部 ── */
+:root form[data-clarify-batch] {
+  gap: 10px;
+  padding: 12px 12px 10px;
+  border-radius: var(--cx-radius-dock);
+  background: var(--cx-popover);
+  box-shadow: var(--cx-edge), var(--cx-shadow-composer);
+}
+
+:root form[data-clarify-batch] > [data-slot='clarify-inline'] {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* 头部的「0 of 2 answered」做成 codex-ui 的步数胶囊 */
+:root form[data-clarify-batch] > [data-slot='clarify-inline'] > div:first-child > span:first-child {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--cx-warning-bg);
+  color: var(--cx-warning);
+  font-weight: 500;
+}
+
+:root form[data-clarify-batch] > [data-slot='clarify-inline'] > div:first-child {
+  justify-content: space-between;
+}
+
+:root form[data-clarify-batch] [data-clarify-batch-question] > div:first-child > span:first-child {
+  font-weight: 600;
+}
+
+:root form[data-clarify-batch] [data-choice],
+:root form[data-clarify-batch] [role='group'] > label {
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: var(--cx-radius-control);
+  transition: background-color var(--cx-dur-snap) ease-out;
+}
+
+:root form[data-clarify-batch] [data-choice]:hover,
+:root form[data-clarify-batch] :is([data-choice], label)[data-highlighted] {
+  background: var(--cx-hover);
+}
+
+:root form[data-clarify-batch] [data-choice][aria-pressed='true'] {
+  background: color-mix(in srgb, var(--ui-accent) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 45%, transparent);
+}
+
+:root form[data-clarify-batch] [data-choice][aria-pressed='true'] [data-slot='kbd'] {
+  border-color: transparent;
+  background: var(--ui-accent);
+  color: var(--dt-midground-foreground);
+}
+
+:root form[data-clarify-batch] [data-slot='kbd'] {
+  border-radius: 4px;
+}
+
+:root form[data-clarify-batch] textarea {
+  border-radius: var(--cx-radius-control);
+}
+
+/* 回执沿用同一卡面，但留在消息流里 */
+:root [data-slot='clarify-inline'][data-clarify-settled] {
+  border-radius: var(--cx-radius-dock);
+  background: var(--cx-surface);
+  box-shadow: var(--cx-edge);
+}

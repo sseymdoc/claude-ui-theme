@@ -1,0 +1,243 @@
+/* ── Claude UI · transcript ───────────────────────────────────────────────
+   codex-ui 的消息流：助手正文不套容器，脚手架（思考、工具）压成一行 muted 灰字，
+   运行中才加 shimmer；层次靠颜色而不是整体变淡。 */
+
+/* 脚手架不再整体降到 0.67 不透明度，改用 muted 颜色分层，hover 提到 secondary */
+:root [data-slot='aui_assistant-message-content'] [data-conversation-scaffold],
+:root [data-slot='aui_background-result'] [data-conversation-scaffold],
+:root [data-slot='aui_background-resume'] {
+  opacity: 1;
+}
+
+:root {
+  --disclosure-caret-rest: 0.55;
+}
+
+/* ── 文字高光：codex-ui 的 3s 扫光，替换 Hermes 的 tw-shimmer ── */
+:root .shimmer:not(.shimmer-bg),
+:root .cx-shimmer {
+  --cx-st-base: var(--ui-text-secondary);
+  --cx-st-peak: color-mix(in srgb, var(--ui-text-secondary) 30%, white);
+  color: var(--cx-st-base);
+  background: linear-gradient(120deg, var(--cx-st-base) 37.5%, var(--cx-st-peak) 50%, var(--cx-st-base) 62.5%) 83.333% 0 / 400% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: cx-shimmer 3s linear infinite;
+}
+
+:root.dark .shimmer:not(.shimmer-bg),
+:root.dark .cx-shimmer {
+  --cx-st-base: var(--ui-text-secondary);
+  --cx-st-peak: var(--ui-text-primary);
+}
+
+/* ── 用户消息：5% 墨色的实色气泡（它是 sticky 的，必须不透明），无描边 ── */
+:root .composer-human-message {
+  border-color: transparent;
+  border-radius: 8px;
+}
+
+:root .composer-human-message:hover {
+  border-color: var(--cx-line);
+}
+
+/* ── 思考块 ── */
+:root [data-slot='aui_thinking-disclosure'] [data-slot='aui_thinking-body'],
+:root [data-slot='aui_thinking-disclosure'] [data-slot='aui_reasoning-text'] {
+  color: var(--ui-text-tertiary);
+  font-style: italic;
+}
+
+/* ── 工具行：一行灰字「动词 · 详情 · 结果 ›」 ──────────────────────────── */
+
+/* 去掉图标格（运行中的 spinner、成功/失败图标都在这里）；codex-ui 的行是纯文字 */
+:root [data-slot='tool-block'][data-tool-row] [class~='size-3.5'][class~='place-items-center'] {
+  display: none;
+}
+
+/* 标题默认 muted；hover 到 secondary */
+:root [data-slot='tool-block'] .group\/disclosure-row,
+:root [data-slot='aui_thinking-disclosure'] .group\/disclosure-row {
+  color: var(--conversation-scaffold-text);
+}
+
+:root [data-slot='tool-block'] .group\/disclosure-row:hover [class*='text-(--conversation-scaffold-text)'],
+:root [data-slot='aui_thinking-disclosure'] .group\/disclosure-row:hover [class*='text-(--conversation-scaffold-text)'] {
+  color: var(--ui-text-secondary);
+}
+
+/* 箭头挪到行尾：按钮里的原箭头隐藏，由整行的 ::after 画；按钮的 ::before 撑满整行，整行都能点 */
+:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\/disclosure-row > button > span:last-child:has(> .codicon-chevron-right) {
+  display: none;
+}
+
+:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\/disclosure-row:has(> button[aria-expanded])::after {
+  content: '›';
+  order: 50;
+  align-self: flex-start;
+  width: 0.75em;
+  margin-left: 0.3em;
+  line-height: var(--conversation-line-height);
+  text-align: center;
+  color: var(--ui-text-tertiary);
+  opacity: var(--disclosure-caret-rest);
+  transition:
+    transform var(--cx-dur-snap) var(--cx-ease-snap),
+    opacity var(--cx-dur-snap) ease-out;
+  pointer-events: none;
+}
+
+:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\/disclosure-row:hover::after {
+  opacity: 0.9;
+}
+
+:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\/disclosure-row:has(> button[aria-expanded='true'])::after {
+  transform: rotate(90deg);
+}
+
+:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\/disclosure-row > button[aria-expanded]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+/* 行尾的计时、进度、时间戳紧跟标题，用「·」分隔；关闭按钮放到最后，并压在整行热区之上 */
+:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\/disclosure-row > span[class~='ml-auto'] {
+  order: 60;
+  margin-left: auto;
+  position: relative;
+  z-index: 1;
+}
+
+:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\/disclosure-row > span:last-child:not([class~='ml-auto']) {
+  order: 40;
+  padding-left: 0;
+}
+
+:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\/disclosure-row > span:last-child:not([class~='ml-auto']) > span:not(:empty) {
+  margin-left: 0.4em;
+}
+
+:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\/disclosure-row > span:last-child:not([class~='ml-auto']) > span:not(:empty)::before,
+:root [data-slot='tool-block'] .group\/disclosure-row > button [class~='tabular-nums']:not(:empty):not(:has(> [class*='text-emerald-'], > [class*='text-rose-']))::before {
+  content: '·';
+  margin-right: 0.4em;
+  color: var(--ui-text-quaternary);
+}
+
+/* 运行中：整行 secondary + 扫光（原生只闪动词） */
+:root [data-slot='tool-block'][data-tool-row]:has(.glyph-spinner) [class*='text-(--conversation-scaffold-meta)'],
+:root [data-slot='tool-block'][data-tool-summary] [class*='text-(--conversation-scaffold-text)']:has(.shimmer),
+:root [data-tool-summary]:has(.shimmer) [class*='text-(--conversation-scaffold-text)'] {
+  --cx-st-base: var(--ui-text-secondary);
+  --cx-st-peak: color-mix(in srgb, var(--ui-text-secondary) 30%, white);
+  color: var(--ui-text-secondary);
+  background: linear-gradient(120deg, var(--cx-st-base) 37.5%, var(--cx-st-peak) 50%, var(--cx-st-base) 62.5%) 83.333% 0 / 400% 100% no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: cx-shimmer 3s linear infinite;
+}
+
+:root.dark [data-slot='tool-block'][data-tool-row]:has(.glyph-spinner) [class*='text-(--conversation-scaffold-meta)'],
+:root.dark [data-tool-summary]:has(.shimmer) [class*='text-(--conversation-scaffold-text)'] {
+  --cx-st-peak: var(--ui-text-primary);
+}
+
+:root [data-slot='tool-block'][data-tool-row]:has(.glyph-spinner) [class*='text-(--conversation-scaffold-meta)'] .shimmer,
+:root [data-tool-summary]:has(.shimmer) [class*='text-(--conversation-scaffold-text)'] .shimmer {
+  background: none;
+  -webkit-text-fill-color: inherit;
+  animation: none;
+}
+
+/* 运行中合并成一行：不显示单行滚动条，由摘要行承担 */
+:root [data-tool-ticker] {
+  display: none;
+}
+
+/* 展开后的卡片：圆角 6、1px 墨色环，白/近黑卡面 */
+:root [data-slot='tool-block'][data-tool-row][data-tool-open] {
+  border-color: var(--cx-line);
+  border-radius: var(--cx-radius-card);
+  background: var(--cx-surface) !important;
+}
+
+:root [data-slot='tool-block'][data-tool-row][data-tool-open] > div:first-child {
+  border-color: var(--cx-line);
+}
+
+/* 文件改动的 +N −N：codex-ui 的小徽章 */
+:root [data-slot='tool-block'] [class~='font-mono'][class~='tabular-nums']:has(> [class*='text-emerald-']) {
+  gap: 3px;
+}
+
+:root [data-slot='tool-block'] [class~='font-mono'][class~='tabular-nums'] > :is([class*='text-emerald-'], [class*='text-rose-']) {
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-family: var(--dt-font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+:root [data-slot='tool-block'] [class~='font-mono'][class~='tabular-nums'] > [class*='text-emerald-'] {
+  color: var(--cx-git-add);
+  background: color-mix(in srgb, var(--cx-git-add) 18%, transparent);
+}
+
+:root [data-slot='tool-block'] [class~='font-mono'][class~='tabular-nums'] > [class*='text-rose-'] {
+  color: var(--cx-git-remove);
+  background: color-mix(in srgb, var(--cx-git-remove) 16%, transparent);
+}
+
+/* ── 工作行：沿用 Hermes 的 dither 方块，染成蓝色并加 codex-ui 的呼吸 ── */
+:root :is([data-slot='aui_response-loading'], [data-slot='aui_turn-activity']) .dither {
+  color: var(--ui-accent);
+  opacity: 1;
+  animation: cx-breathe 3s ease-in-out infinite;
+}
+
+:root :is([data-slot='aui_response-loading'], [data-slot='aui_turn-activity']) [class*='tabular-nums'] {
+  color: var(--ui-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 正文排版 ── */
+:root .aui-md :not(pre) > code {
+  border-radius: 0.4em;
+  box-shadow: inset 0 0 0 0.5px var(--cx-line);
+}
+
+:root .aui-md [data-slot='code-card'] {
+  border-radius: var(--cx-radius-card);
+  box-shadow: inset 0 0 0 1px var(--cx-line);
+}
+
+:root .aui-md blockquote {
+  border-color: var(--cx-line-strong);
+  color: var(--ui-text-secondary);
+  font-style: normal;
+}
+
+:root .aui-md blockquote p::before,
+:root .aui-md blockquote p::after {
+  content: none;
+}
+
+:root .aui-md-table {
+  border-color: var(--cx-line);
+  border-radius: var(--cx-radius-card);
+}
+
+:root .aui-md a:not([data-ref]) {
+  color: var(--ui-accent);
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+:root .aui-md a:not([data-ref]):hover {
+  text-decoration-color: currentColor;
+}

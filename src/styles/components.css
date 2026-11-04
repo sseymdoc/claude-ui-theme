@@ -1,0 +1,321 @@
+/* ── Claude UI · 自建组件（额度环、推理强度入口、会话栏）──────────────────── */
+
+/* 选择器行里的小按钮：与 Hermes 的模型 pill 同高，secondary 色 */
+:root .cx-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: var(--composer-control-size, 1.5rem);
+  min-width: var(--composer-control-size, 1.5rem);
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--cx-radius-control);
+  background: transparent;
+  color: var(--ui-text-secondary);
+  font: inherit;
+  font-size: var(--conversation-caption-font-size, 0.75rem);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--cx-dur-snap) ease-out,
+    color var(--cx-dur-snap) ease-out;
+}
+
+:root .cx-pill:hover,
+:root .cx-pill[data-state='open'] {
+  background: var(--chrome-action-hover);
+  color: var(--ui-text-primary);
+}
+
+:root .cx-pill[data-pro] {
+  color: var(--cx-pro);
+}
+
+:root .cx-usage-trigger {
+  padding: 0 4px;
+}
+
+/* 推理强度：模型不支持推理时原生 pill 不渲染，我们也让位；我们在时原生 pill 收起（只在主会话） */
+:root [data-slot='composer-root']:not(:has([data-testid='reasoning-pill'])) [data-cxui-effort] {
+  display: none;
+}
+
+:root [data-chat-surface][data-composer-target='main'] [data-slot='composer-root']:has([data-cxui-effort]) [data-testid='reasoning-pill'] {
+  display: none !important;
+}
+
+/* tile（分屏会话）保留 Hermes 原生控件 */
+:root [data-chat-surface]:not([data-composer-target='main']) :is([data-cxui-effort], [data-cxui-quota]) {
+  display: none;
+}
+
+/* ── 会话栏 ── */
+:root .cx-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 10px 10px 14px;
+  color: var(--ui-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+  scrollbar-width: none;
+}
+
+:root .cx-rail-empty {
+  margin: 0;
+  padding: 0 4px;
+}
+
+:root .cx-card {
+  border-radius: var(--cx-radius-card);
+  background: var(--cx-surface);
+  box-shadow: var(--cx-edge);
+}
+
+:root .cx-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 6px 0 10px;
+}
+
+/* 卡片标题沿用 Hermes 侧栏的大写分组标题 + dither 方点 */
+:root .cx-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--theme-primary);
+  font: inherit;
+  font-size: 0.64rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+:root .cx-card-dither {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  transition: transform var(--cx-dur-snap) var(--cx-ease-snap);
+}
+
+:root .cx-card[data-folded] .cx-card-dither {
+  transform: scale(0.7);
+  opacity: 0.6;
+}
+
+:root .cx-card-body {
+  display: grid;
+  gap: 4px;
+  padding: 0 10px 10px;
+  min-width: 0;
+}
+
+:root .cx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+  min-width: 0;
+}
+
+:root .cx-row-label {
+  color: var(--ui-text-tertiary);
+  white-space: nowrap;
+}
+
+:root .cx-row-value {
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root .cx-strong {
+  color: var(--ui-text-primary);
+}
+
+:root .cx-muted {
+  color: var(--ui-text-tertiary);
+}
+
+:root .cx-mono {
+  font-family: var(--dt-font-mono);
+  font-size: 11px;
+}
+
+:root .cx-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+:root .cx-ellipsis {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root .cx-glyph {
+  flex: none;
+  color: var(--ui-text-tertiary);
+}
+
+:root .cx-goal,
+:root .cx-todos {
+  display: grid;
+  gap: 3px;
+}
+
+:root .cx-subgoal {
+  padding-left: 10px;
+  border-left: 2px solid var(--cx-line-strong);
+}
+
+:root .cx-todo {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+:root .cx-todo-glyph {
+  width: 10px;
+  flex: none;
+  color: var(--ui-text-tertiary);
+  font-size: 9px;
+}
+
+:root .cx-todo[data-status='in_progress'] {
+  color: var(--ui-text-primary);
+}
+
+:root .cx-todo[data-status='in_progress'] .cx-todo-glyph {
+  color: var(--ui-accent);
+}
+
+:root .cx-todo[data-status='completed'] {
+  color: var(--ui-text-tertiary);
+  text-decoration: line-through;
+  text-decoration-color: var(--cx-line-strong);
+}
+
+/* 上下文占用条：分段，颜色来自 Hermes 的 --context-usage-* */
+:root .cx-meter {
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ui-base) 8%, transparent);
+}
+
+:root .cx-meter > span {
+  height: 100%;
+  transition: width var(--cx-dur-base) var(--cx-ease-out);
+}
+
+:root .cx-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  color: var(--ui-text-tertiary);
+  font-size: 11px;
+}
+
+:root .cx-legend i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border-radius: 2px;
+  vertical-align: 1px;
+}
+
+/* 状态点：codex-ui 的 6px 圆点 */
+:root .cx-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ui-text-tertiary);
+}
+
+:root .cx-dot[data-tone='good'] {
+  background: var(--ui-green);
+}
+
+:root .cx-dot[data-tone='warn'] {
+  background: var(--cx-warning-fill);
+}
+
+:root .cx-dot[data-tone='bad'] {
+  background: var(--ui-red);
+}
+
+:root .cx-dot[data-tone='off'] {
+  background: var(--cx-line-strong);
+}
+
+:root .cx-dot[data-tone='busy'] {
+  background: var(--ui-text-tertiary);
+  animation: cx-blink 1.2s ease-in-out infinite;
+}
+
+/* 卡片里的小按钮 */
+:root :is(.cx-mini, .cx-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  border: 0;
+  border-radius: var(--cx-radius-control);
+  background: transparent;
+  color: var(--ui-text-secondary);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color var(--cx-dur-snap) ease-out;
+}
+
+:root .cx-mini {
+  padding: 0 8px;
+  box-shadow: inset 0 0 0 1px var(--cx-line);
+}
+
+:root .cx-icon {
+  width: 22px;
+  color: var(--ui-text-tertiary);
+}
+
+:root :is(.cx-mini, .cx-icon):hover:not(:disabled) {
+  background: var(--cx-hover);
+  color: var(--ui-text-primary);
+}
+
+:root :is(.cx-mini, .cx-icon):disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+:root .cx-mini.cx-accent {
+  color: var(--ui-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 40%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root .cx-dot[data-tone='busy'] {
+    animation: none;
+  }
+}

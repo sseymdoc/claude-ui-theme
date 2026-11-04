@@ -1,0 +1,144 @@
+/* ── Claude UI · 浮层 ──────────────────────────────────────────────────────
+   菜单、下拉、弹层：codex-ui 的 surface-3 + 一圈细环 + popover 阴影，不透明、无入场动画。
+   对话框：圆角 10 + 细环 + 双层投影；tooltip：墨色底（暗色下换成弹层色 + 内环）。 */
+
+:root
+  :is(
+    [data-slot='dropdown-menu-content'],
+    [data-slot='dropdown-menu-sub-content'],
+    [data-slot='select-content'],
+    [data-slot='context-menu-content'],
+    [data-slot='context-menu-sub-content'],
+    [data-slot='popover-content'],
+    [data-slot='thread-timeline-popover']
+  ) {
+  border-color: transparent;
+  border-radius: var(--cx-radius-card);
+  background: var(--cx-popover);
+  box-shadow: var(--cx-edge), var(--cx-shadow-popover);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root :is([data-slot='dropdown-menu-content'], [data-slot='dropdown-menu-sub-content'], [data-slot='select-content'], [data-slot='context-menu-content'], [data-slot='context-menu-sub-content'])[data-state='open'] {
+  animation: none;
+}
+
+:root
+  :is(
+    [data-slot='dropdown-menu-item'],
+    [data-slot='dropdown-menu-checkbox-item'],
+    [data-slot='dropdown-menu-radio-item'],
+    [data-slot='dropdown-menu-sub-trigger'],
+    [data-slot='select-item'],
+    [data-slot='context-menu-item'],
+    [data-slot='context-menu-sub-trigger']
+  ) {
+  border-radius: var(--cx-radius-control);
+}
+
+:root
+  :is(
+    [data-slot='dropdown-menu-item'],
+    [data-slot='dropdown-menu-checkbox-item'],
+    [data-slot='dropdown-menu-radio-item'],
+    [data-slot='dropdown-menu-sub-trigger'],
+    [data-slot='select-item'],
+    [data-slot='context-menu-item'],
+    [data-slot='context-menu-sub-trigger']
+  ):is(:focus, [data-highlighted], [data-state='open'], [data-kb-active]) {
+  background: var(--cx-hover);
+  color: var(--ui-text-primary);
+}
+
+:root :is([data-slot='dropdown-menu-separator'], [data-slot='context-menu-separator'], [data-slot='select-separator']) {
+  background: var(--cx-line);
+}
+
+:root :is([data-slot='dropdown-menu-label'], [data-slot='select-label']) {
+  color: var(--ui-text-tertiary);
+}
+
+/* 勾选标记用强调色 */
+:root :is([data-slot='dropdown-menu-checkbox-item'], [data-slot='dropdown-menu-radio-item'], [data-slot='select-item']) :is(svg, .codicon-check) {
+  color: var(--ui-accent);
+}
+
+/* ── 对话框 ── */
+:root [data-slot='dialog-overlay'] {
+  background: rgb(0 0 0 / 0.28);
+  backdrop-filter: none;
+}
+
+:root.dark [data-slot='dialog-overlay'] {
+  background: rgb(0 0 0 / 0.5);
+}
+
+:root [data-slot='dialog-content']:not([data-variant='media-lightbox']) {
+  border-color: transparent;
+  border-radius: var(--cx-radius-dock);
+  background: var(--cx-popover);
+  box-shadow: var(--cx-edge), var(--cx-shadow-dialog);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 设置等覆盖层卡片 */
+:root [data-overlay-surface] {
+  background: rgb(0 0 0 / 0.22);
+}
+
+:root [data-overlay-surface] [data-glass-raised] {
+  border-color: transparent;
+  border-radius: var(--cx-radius-dock);
+  box-shadow: var(--cx-edge), var(--cx-shadow-dialog);
+}
+
+/* ── 命令面板（⌘K）── */
+:root [role='dialog']:has([cmdk-root]) {
+  border-color: transparent;
+  border-radius: 12px;
+  background: var(--cx-popover);
+  box-shadow:
+    0 0 0 0.5px var(--cx-line-strong),
+    0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+
+:root [data-slot='command-item'] {
+  border-radius: var(--cx-radius-control);
+}
+
+:root [data-slot='command-item'][data-selected='true'] {
+  background: var(--cx-hover);
+  color: var(--ui-text-primary);
+}
+
+/* ── tooltip ── */
+:root [data-slot='tooltip-content'].tooltip-bubble {
+  border-radius: var(--cx-radius-control);
+  background: #0b0b0b;
+  color: #ffffff;
+}
+
+:root [data-slot='tooltip-arrow'] {
+  fill: #0b0b0b;
+}
+
+:root.dark [data-slot='tooltip-content'].tooltip-bubble {
+  background: var(--cx-popover);
+  color: var(--ui-text-primary);
+  box-shadow: inset 0 0 0 1px var(--cx-line);
+}
+
+:root.dark [data-slot='tooltip-arrow'] {
+  fill: var(--cx-popover);
+}
+
+/* ── toast ── */
+:root [role='region'] [data-slot='card-stack-surface'] {
+  border-color: transparent;
+  border-radius: var(--cx-radius-dock);
+  background: var(--cx-popover);
+  box-shadow: var(--cx-edge), var(--cx-shadow-popover);
+  backdrop-filter: none;
+}
