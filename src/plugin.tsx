@@ -11,12 +11,13 @@ import effort from './styles/effort.css'
 import overlays from './styles/overlays.css'
 import quota from './styles/quota.css'
 import shell from './styles/shell.css'
+import stack from './styles/stack'
 import tokens from './styles/tokens.css'
 import transcript from './styles/transcript.css'
 import { buildTheme, THEME_NAME } from './theme'
 
 // customCSS 只在本主题被绘制时存在，宿主负责注入与移除。
-const customCSS = [tokens, shell, transcript, composer, overlays, components, effort, quota].join('\n')
+const customCSS = [tokens, shell, transcript, stack, composer, overlays, components, effort, quota].join('\n')
 
 export default {
   id: PLUGIN_ID,

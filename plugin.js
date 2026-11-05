@@ -498,9 +498,9 @@ function chargeField(el, handle, stop, powered, rushing) {
     frame = requestAnimationFrame(tick);
   };
   const start = () => {
-    const style = getComputedStyle(el);
-    const dark2 = style.colorScheme.includes("dark");
-    const accent = srgb(style.getPropertyValue("--ui-accent"), dark2 ? "#7aa2ff" : "#1f5fe0");
+    const style2 = getComputedStyle(el);
+    const dark2 = style2.colorScheme.includes("dark");
+    const accent = srgb(style2.getPropertyValue("--ui-accent"), dark2 ? "#7aa2ff" : "#1f5fe0");
     const ink = dark2 ? { ...CHARGE_DARK, u_fg: accent } : { ...CHARGE_LIGHT, u_charge1: [...accent, 1] };
     for (const [name, value] of Object.entries(ink)) {
       if (typeof value === "number") gl.uniform1f(u(name), value);
@@ -1107,7 +1107,7 @@ function UsageRing({ value, size = 18, stroke = 2, motionKey, streaming = false 
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
-  const style = {
+  const style2 = {
     "--cx-usage-size": `${size}px`,
     "--cx-usage-c": circumference,
     // 彗星是 10% 圈长（36°）的一段，从 12 点转到尾端与弧尾对齐
@@ -1117,7 +1117,7 @@ function UsageRing({ value, size = 18, stroke = 2, motionKey, streaming = false 
     "span",
     {
       className: "cx-usage-ring",
-      style,
+      style: style2,
       "data-level": severity,
       "data-entrance": shown.entrance ?? void 0,
       "data-beat": shown.beat ?? void 0,
@@ -1341,7 +1341,7 @@ function contextReading(usage, breakdown) {
   };
 }
 function segments(categories, used) {
-  const total = categories.reduce((sum, c) => sum + (c.tokens || 0), 0) || used || 1;
+  const total = categories.reduce((sum2, c) => sum2 + (c.tokens || 0), 0) || used || 1;
   return categories.map((c) => ({ ...c, width: (c.tokens || 0) / total * 100 }));
 }
 var processState = (process) => process?.status !== "exited" ? "running" : typeof process.exit_code === "number" && process.exit_code !== 0 ? "failed" : "done";
@@ -1749,7 +1749,191 @@ var overlays_default = "/* \u2500\u2500 Claude UI \xB7 \u6D6E\u5C42 \u2500\u2500
 var quota_default = "/* \u2500\u2500 Claude UI \xB7 \u989D\u5EA6\u7528\u91CF\u73AF\u4E0E\u5F39\u5C42 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n   \u79FB\u690D\u81EA codex-ui\uFF1Abase.css:2175-2372\uFF08\u7528\u91CF\u73AF\u4E0E Usage Ring Meter \u52A8\u6548\uFF09\u3001composer.css:831-839\uFF08\u8F93\u5165\u6846\u884C\u91CC\u7684\u89E6\u53D1\u6309\u94AE\uFF09\u3001\r\n   composer.css:1315-1548\uFF08\u5F39\u5C42\u3001\u5957\u9910\u989D\u5EA6\u884C\u4E0E\u8FDB\u5EA6\u6761\uFF09\u3001base.css:2536-2568\uFF08\u51CF\u5C11\u52A8\u6548\uFF09\uFF0Ckeyframes \u53D6\u81EA tokens.css:1181-1406\u3002\r\n   codex-ui \u7684\u8F93\u5165\u6846\u5728 compact \u5BC6\u5EA6\u4E0B\uFF0C\u5F39\u5C42\u95F4\u8DDD\u6309\u90A3\u4E00\u6863\u53D6\uFF1Apad-xs 4 \xB7 pad-sm 6 \xB7 pad-lg 12 \xB7 gap-xs 6 \xB7 gap-sm 8\uFF0C\u5B57\u53F7 12/15\u3002\r\n   \u7EC4\u4EF6\u89C1 src/quota/ring.tsx\u3002 */\r\n\r\n/* \u2500\u2500 \u7528\u91CF\u73AF\uFF1A\u5916\u5C42\u5B9A\u5C3A\u5BF8\uFF0C\u4E09\u5C42\u58F3\uFF08hover \u653E\u5927 \u2192 \u5FC3\u8DF3 \u2192 \u547C\u5438\uFF09\u53E0\u5728\u540C\u4E00\u683C\u91CC\uFF1B\u5F27\u8272\u968F data-level \u2500\u2500 */\r\n:root .cx-usage-ring {\r\n  --cx-usage-color: var(--ui-text-secondary);\r\n  position: relative;\r\n  display: inline-grid;\r\n  place-items: center;\r\n  flex: none;\r\n  width: var(--cx-usage-size);\r\n  height: var(--cx-usage-size);\r\n}\r\n\r\n:root .cx-usage-ring[data-level='warning'] {\r\n  --cx-usage-color: var(--cx-warning-fill);\r\n}\r\n\r\n:root .cx-usage-ring[data-level='critical'] {\r\n  --cx-usage-color: var(--ui-red);\r\n}\r\n\r\n:root :is(.cx-usage-ring__hover, .cx-usage-ring__beat, .cx-usage-ring__breath) {\r\n  position: relative;\r\n  display: grid;\r\n  place-items: center;\r\n  width: 100%;\r\n  height: 100%;\r\n}\r\n\r\n:root .cx-usage-ring__breath > * {\r\n  grid-area: 1 / 1;\r\n}\r\n\r\n/* \u5F27\u8272\u7684\u5149\u6655\uFF1A\u5E38\u9A7B\u4E00\u5C42\u5F88\u6DE1\u7684\uFF0C\u5FC3\u8DF3\u3001hover \u5404\u4E00\u5C42\u5E73\u65F6\u900F\u660E\u7684 */\r\n:root :is(.cx-usage-ring__glow, .cx-usage-ring__beat-glow, .cx-usage-ring__hover-glow) {\r\n  position: absolute;\r\n  inset: calc(var(--cx-usage-size) * -1);\r\n  border-radius: 50%;\r\n  background: radial-gradient(closest-side, color-mix(in srgb, var(--cx-usage-color) 55%, transparent), transparent 62%);\r\n  pointer-events: none;\r\n}\r\n\r\n:root .cx-usage-ring__glow {\r\n  opacity: 0.06;\r\n}\r\n\r\n:root :is(.cx-usage-ring__beat-glow, .cx-usage-ring__hover-glow) {\r\n  opacity: 0;\r\n}\r\n\r\n:root .cx-usage-ring__hover {\r\n  transition: transform var(--cx-dur-fast) var(--cx-ease-out);\r\n}\r\n\r\n:root .cx-usage-ring__hover-glow {\r\n  transition: opacity var(--cx-dur-fast) var(--cx-ease-out);\r\n}\r\n\r\n/* hover \u5916\u5C42\u6309\u94AE\uFF1A\u73AF\u653E\u5927 1.08\uFF0C\u5149\u6655\u4EAE\u8D77 */\r\n@media (hover: hover) {\r\n  :root :is(button, [role='button']):hover .cx-usage-ring__hover {\r\n    transform: scale(1.08);\r\n  }\r\n\r\n  :root :is(button, [role='button']):hover .cx-usage-ring__hover-glow {\r\n    opacity: 0.23;\r\n  }\r\n}\r\n\r\n/* \u8F6C -90\xB0 \u8BA9\u5F27\u4ECE 12 \u70B9\u8D77\uFF1B\u5F27\u7684 dashoffset \u8FC7\u6E21 300ms\uFF08\u4E3B\u9898\u6CA1\u6709 --cx-dur-sheet\uFF0C\u56DE\u9000\u5230 300ms\uFF09 */\r\n:root .cx-usage-ring__svg {\r\n  transform: rotate(-90deg);\r\n}\r\n\r\n:root .cx-usage-ring circle {\r\n  fill: none;\r\n}\r\n\r\n:root .cx-usage-ring__track {\r\n  stroke: color-mix(in srgb, var(--ui-base) 8%, transparent);\r\n  transition: stroke var(--cx-dur-base) var(--cx-ease-out);\r\n}\r\n\r\n:root .cx-usage-ring__arc {\r\n  stroke: var(--cx-usage-color);\r\n  stroke-linecap: round;\r\n  transition-property: stroke-dashoffset, stroke;\r\n  transition-duration: var(--cx-dur-sheet, 300ms), var(--cx-dur-base);\r\n  transition-timing-function: var(--cx-ease-out);\r\n}\r\n\r\n/* \u753B\u5165\uFF08\u7A97\u53E3\u5728\u672C\u673A\u7B2C\u4E00\u6B21\u51FA\u73B0\uFF09\uFF1A\u5F27 900ms \u56DE\u5F39\u626B\u5165\uFF0C\u8F68\u9053\u7A0D\u540E\u6DE1\u5165\uFF0C\u5149\u6655\u5728 1.2s \u91CC\u95EA\u4E00\u4E0B */\r\n:root .cx-usage-ring[data-entrance='draw'] .cx-usage-ring__arc {\r\n  animation:\r\n    cx-usage-sweep calc(2 * var(--cx-dur-slow)) var(--cx-overshoot) backwards,\r\n    cx-usage-fade-in var(--cx-dur-snap) linear backwards;\r\n}\r\n\r\n:root .cx-usage-ring[data-entrance='draw'] .cx-usage-ring__track {\r\n  animation: cx-usage-fade-in var(--cx-dur-sheet, 300ms) var(--cx-ease-out) 0.15s backwards;\r\n}\r\n\r\n:root .cx-usage-ring[data-entrance='draw'] .cx-usage-ring__glow {\r\n  animation: cx-usage-draw-glow 1.2s linear backwards;\r\n}\r\n\r\n/* \u5B89\u9759\u5165\u573A\uFF1A200ms \u626B\u5165\u5E76\u6DE1\u5165 */\r\n:root .cx-usage-ring[data-entrance='quiet'] .cx-usage-ring__arc {\r\n  animation:\r\n    cx-usage-sweep var(--cx-dur-base) var(--cx-ease-out) backwards,\r\n    cx-usage-fade-in var(--cx-dur-base) var(--cx-ease-out) backwards;\r\n}\r\n\r\n:root .cx-usage-ring[data-entrance='quiet'] :is(.cx-usage-ring__track, .cx-usage-ring__glow) {\r\n  animation: cx-usage-fade-in var(--cx-dur-base) var(--cx-ease-out) backwards;\r\n}\r\n\r\n/* \u5FC3\u8DF3\uFF1A1 \u8B66\u544A \xB7 2 \u5371\u9669 \xB7 3 \u89E6\u9876\uFF0C\u65F6\u957F\u4E0E ring.tsx \u7684 BEAT_MS \u4E00\u81F4 */\r\n:root .cx-usage-ring[data-beat='1'] .cx-usage-ring__beat {\r\n  animation: cx-usage-beat-warning 2.3s linear;\r\n}\r\n\r\n:root .cx-usage-ring[data-beat='1'] .cx-usage-ring__beat-glow {\r\n  animation: cx-usage-beat-warning-glow 2.3s linear;\r\n}\r\n\r\n:root .cx-usage-ring[data-beat='2'] .cx-usage-ring__beat {\r\n  animation: cx-usage-beat-critical 1.45s linear;\r\n}\r\n\r\n:root .cx-usage-ring[data-beat='2'] .cx-usage-ring__beat-glow {\r\n  animation: cx-usage-beat-critical-glow 1.45s linear;\r\n}\r\n\r\n:root .cx-usage-ring[data-beat='3'] .cx-usage-ring__beat {\r\n  animation: cx-usage-beat-limit 2.45s linear;\r\n}\r\n\r\n:root .cx-usage-ring[data-beat='3'] .cx-usage-ring__beat-glow {\r\n  animation: cx-usage-beat-limit-glow 2.45s linear;\r\n}\r\n\r\n/* \u5F00\u59CB\u6D41\u5F0F\u56DE\u590D\uFF1A\u73AF\u547C\u5438\u4E00\u6B21\uFF0C\u5F57\u661F 2s \u8DD1\u5230\u5F27\u5C3E */\r\n:root .cx-usage-ring[data-shimmer] .cx-usage-ring__breath {\r\n  animation: cx-usage-breath 1.5s ease-in-out;\r\n}\r\n\r\n:root .cx-usage-ring__comet {\r\n  position: absolute;\r\n  inset: 0;\r\n  opacity: 0;\r\n  transform: rotate(-90deg);\r\n  pointer-events: none;\r\n}\r\n\r\n:root .cx-usage-ring__comet circle {\r\n  stroke: color-mix(in srgb, var(--cx-usage-color) 28%, white);\r\n  stroke-linecap: round;\r\n}\r\n\r\n:root .cx-usage-ring[data-shimmer] .cx-usage-ring__comet {\r\n  animation:\r\n    cx-usage-comet-travel 2s linear,\r\n    cx-usage-comet-fade 2s linear;\r\n}\r\n\r\n/* \u2500\u2500 \u89E6\u53D1\u6309\u94AE\uFF08\u52A0\u5728\u5305\u7740\u73AF\u7684\u6309\u94AE\u4E0A\uFF09\uFF1A\u5728\u8F93\u5165\u6846\u884C\u91CC\u5F80\u91CC\u632A 1px\uFF0C\u8F68\u9053\u52A0\u6DF1\u4E00\u6863 \u2500\u2500 */\r\n:root .cx-usage-trigger {\r\n  margin-inline-start: 1px;\r\n}\r\n\r\n:root .cx-usage-trigger .cx-usage-ring__track {\r\n  stroke: var(--cx-line-strong);\r\n}\r\n\r\n/* \u2500\u2500 \u5F39\u5C42\u5BB9\u5668\uFF08\u52A0\u5728 Hermes PopoverContent \u7684 className \u4E0A\uFF09\uFF1A360 \u5BBD\u3001\u4E0A\u4E0B 6\u3001\u8FC7\u9AD8\u65F6\u6EDA\u52A8 \u2500\u2500 */\r\n:root .cx-usage-pop {\r\n  display: flex;\r\n  flex-direction: column;\r\n  width: 360px;\r\n  max-width: calc(100vw - 2rem);\r\n  max-height: min(calc(100vh - 16px), 640px);\r\n  padding: 6px 0;\r\n  overflow-y: auto;\r\n}\r\n\r\n/* \u2500\u2500 \u5F39\u5C42\u5185\u5BB9\uFF1A\u6807\u9898\u884C\uFF0C\u518D\u662F\u4E00\u5217\u989D\u5EA6\u7A97\u53E3\uFF1B\u6BCF\u5757\u662F\u540D\u79F0\u4E0E\u300C\u91CD\u7F6E\u6587\u6848 N%\u300D\uFF0C\u4E0B\u9762\u4E00\u6761\u8FDB\u5EA6\u6761 \u2500\u2500 */\r\n:root .cx-usage-plan {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 6px;\r\n  font-size: 12px;\r\n  line-height: 15px;\r\n}\r\n\r\n:root .cx-usage-head {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n  min-height: 20px;\r\n  padding: 4px 12px;\r\n  color: var(--ui-text-tertiary);\r\n}\r\n\r\n:root .cx-usage-list {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 8px;\r\n  padding: 0 12px 4px;\r\n}\r\n\r\n:root .cx-usage-row {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 4px;\r\n}\r\n\r\n:root .cx-usage-row-head {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  align-items: baseline;\r\n  justify-content: space-between;\r\n  column-gap: 8px;\r\n}\r\n\r\n:root .cx-usage-name {\r\n  min-width: 0;\r\n  color: var(--ui-text-primary);\r\n}\r\n\r\n:root .cx-usage-value {\r\n  display: flex;\r\n  align-items: baseline;\r\n  gap: 6px;\r\n  margin-inline-start: auto;\r\n  color: var(--ui-text-tertiary);\r\n  font-variant-numeric: tabular-nums;\r\n}\r\n\r\n/* 4px \u5168\u5706\u89D2\u8FDB\u5EA6\u6761\uFF1A\u5E95\u8272 + \u4E00\u5708\u7EC6\u73AF\uFF0C\u524D\u666F\u6309\u5206\u7EA7\u7740\u8272\uFF0C\u6709\u7528\u91CF\u65F6\u81F3\u5C11 4px */\r\n:root .cx-usage-bar {\r\n  height: 4px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: color-mix(in srgb, var(--ui-base) 8%, transparent);\r\n  box-shadow: inset 0 0 0 1px var(--cx-line);\r\n}\r\n\r\n:root .cx-usage-bar > span {\r\n  display: block;\r\n  width: max(var(--cx-usage-pct), 4px);\r\n  height: 100%;\r\n  border-radius: inherit;\r\n  background: var(--ui-text-secondary);\r\n  transition: width var(--cx-dur-base) ease-out;\r\n}\r\n\r\n:root .cx-usage-bar > [data-level='warning'] {\r\n  background: var(--cx-warning-fill);\r\n}\r\n\r\n:root .cx-usage-bar > [data-level='critical'] {\r\n  background: var(--ui-red);\r\n}\r\n\r\n/* \u5217\u8868\u4E0B\u65B9\u7684\u5C0F\u5B57\uFF08\u5982\u89E6\u9876\u8BF4\u660E\uFF09\uFF0C\u53EF\u6362\u884C */\r\n:root .cx-usage-note {\r\n  padding: 0 12px 4px;\r\n  color: var(--ui-text-secondary);\r\n}\r\n\r\n/* \u2500\u2500 \u51CF\u5C11\u52A8\u6548\uFF1A\u5165\u573A\u3001\u5FC3\u8DF3\u3001\u547C\u5438\u7531 ring.tsx \u76F4\u63A5\u4E0D\u6302\uFF08\u4E0D\u7ED9 data-entrance / data-beat / data-shimmer\uFF09\uFF1B\r\n   \u8FD9\u91CC\u518D\u53BB\u6389\u8FC7\u6E21\u3001hover \u653E\u5927\u548C\u5F57\u661F \u2500\u2500 */\r\n@media (prefers-reduced-motion: reduce) {\r\n  :root :is(.cx-usage-ring__arc, .cx-usage-ring__track, .cx-usage-ring__hover, .cx-usage-ring__hover-glow, .cx-usage-bar > span) {\r\n    transition: none;\r\n  }\r\n\r\n  :root :is(button, [role='button']):hover .cx-usage-ring__hover {\r\n    transform: none;\r\n  }\r\n\r\n  :root .cx-usage-ring__comet {\r\n    display: none;\r\n  }\r\n}\r\n\r\n/* \u2500\u2500 keyframes\uFF1A\u5165\u573A\u626B\u5F27\u4E0E\u6DE1\u5165\u3001\u753B\u5165\u5149\u6655\u3001\u547C\u5438\u3001\u5F57\u661F\uFF0C\u4EE5\u53CA\u8B66\u544A / \u5371\u9669 / \u89E6\u9876\u4E09\u6761\u91C7\u6837\u6765\u7684\u53CC\u5CF0\u5FC3\u8DF3\u66F2\u7EBF \u2500\u2500 */\r\n@keyframes cx-usage-sweep {\r\n  0% {\r\n    stroke-dashoffset: var(--cx-usage-c);\r\n  }\r\n}\r\n\r\n@keyframes cx-usage-fade-in {\r\n  0% {\r\n    opacity: 0;\r\n  }\r\n}\r\n\r\n@keyframes cx-usage-draw-glow {\r\n  0% { opacity: 0; }\r\n  10% { opacity: 0.06; }\r\n  50% { opacity: 0.07; }\r\n  56.25% { opacity: 0.12; }\r\n  62.5% { opacity: 0.271; }\r\n  68.75% { opacity: 0.506; }\r\n  75% { opacity: 0.633; }\r\n  81.25% { opacity: 0.506; }\r\n  87.5% { opacity: 0.271; }\r\n  93.75% { opacity: 0.12; }\r\n  to { opacity: 0.06; }\r\n}\r\n\r\n@keyframes cx-usage-breath {\r\n  50% {\r\n    transform: scale(1.0384);\r\n  }\r\n}\r\n\r\n@keyframes cx-usage-comet-travel {\r\n  0% {\r\n    transform: rotate(-90deg);\r\n  }\r\n  to {\r\n    transform: rotate(calc(-90deg + var(--cx-usage-travel)));\r\n  }\r\n}\r\n\r\n@keyframes cx-usage-comet-fade {\r\n  0% { opacity: 0; }\r\n  16.67% { opacity: 0.425; }\r\n  33.33% { opacity: 0.736; }\r\n  50% { opacity: 0.85; }\r\n  66.67% { opacity: 0.736; }\r\n  83.33% { opacity: 0.425; }\r\n  to { opacity: 0; }\r\n}\r\n\r\n@keyframes cx-usage-beat-warning {\r\n  0% { transform: scale(1); }\r\n  14.7% { transform: scale(1.0006); }\r\n  17.83% { transform: scale(1.0037); }\r\n  20.91% { transform: scale(1.0129); }\r\n  24.04% { transform: scale(1.0275); }\r\n  27.13% { transform: scale(1.0352); }\r\n  30.26% { transform: scale(1.0273); }\r\n  33.35% { transform: scale(1.0129); }\r\n  36.48% { transform: scale(1.0037); }\r\n  39.57% { transform: scale(1.0006); }\r\n  52% { transform: scale(1.0004); }\r\n  55.96% { transform: scale(1.002); }\r\n  59.91% { transform: scale(1.0071); }\r\n  63.87% { transform: scale(1.015); }\r\n  67.83% { transform: scale(1.0192); }\r\n  71.78% { transform: scale(1.015); }\r\n  75.74% { transform: scale(1.0071); }\r\n  79.7% { transform: scale(1.002); }\r\n  83.65% { transform: scale(1.0004); }\r\n  to { transform: scale(1); }\r\n}\r\n\r\n@keyframes cx-usage-beat-warning-glow {\r\n  0% { opacity: 0; }\r\n  14.7% { opacity: 0.005; }\r\n  17.83% { opacity: 0.027; }\r\n  20.91% { opacity: 0.093; }\r\n  24.04% { opacity: 0.198; }\r\n  27.13% { opacity: 0.253; }\r\n  30.26% { opacity: 0.196; }\r\n  33.35% { opacity: 0.093; }\r\n  36.48% { opacity: 0.026; }\r\n  39.57% { opacity: 0.005; }\r\n  52% { opacity: 0.003; }\r\n  55.96% { opacity: 0.016; }\r\n  59.91% { opacity: 0.055; }\r\n  63.87% { opacity: 0.116; }\r\n  67.83% { opacity: 0.15; }\r\n  71.78% { opacity: 0.116; }\r\n  75.74% { opacity: 0.055; }\r\n  79.7% { opacity: 0.016; }\r\n  83.65% { opacity: 0.003; }\r\n  to { opacity: 0; }\r\n}\r\n\r\n@keyframes cx-usage-beat-critical {\r\n  0% { transform: scale(1); }\r\n  14.34% { transform: scale(1.0006); }\r\n  17.38% { transform: scale(1.0037); }\r\n  20.41% { transform: scale(1.0129); }\r\n  23.45% { transform: scale(1.0274); }\r\n  26.48% { transform: scale(1.0352); }\r\n  29.52% { transform: scale(1.0274); }\r\n  32.55% { transform: scale(1.0129); }\r\n  35.59% { transform: scale(1.0037); }\r\n  38.62% { transform: scale(1.0006); }\r\n  50.76% { transform: scale(1.0004); }\r\n  54.62% { transform: scale(1.002); }\r\n  58.48% { transform: scale(1.0071); }\r\n  62.34% { transform: scale(1.015); }\r\n  66.21% { transform: scale(1.0192); }\r\n  70.07% { transform: scale(1.015); }\r\n  73.93% { transform: scale(1.0071); }\r\n  77.79% { transform: scale(1.002); }\r\n  81.66% { transform: scale(1.0004); }\r\n  to { transform: scale(1); }\r\n}\r\n\r\n@keyframes cx-usage-beat-critical-glow {\r\n  0% { opacity: 0; }\r\n  14.34% { opacity: 0.005; }\r\n  17.38% { opacity: 0.027; }\r\n  20.41% { opacity: 0.093; }\r\n  23.45% { opacity: 0.197; }\r\n  26.48% { opacity: 0.253; }\r\n  29.52% { opacity: 0.197; }\r\n  32.55% { opacity: 0.093; }\r\n  35.59% { opacity: 0.027; }\r\n  38.62% { opacity: 0.005; }\r\n  50.76% { opacity: 0.003; }\r\n  54.62% { opacity: 0.016; }\r\n  58.48% { opacity: 0.055; }\r\n  62.34% { opacity: 0.116; }\r\n  66.21% { opacity: 0.15; }\r\n  70.07% { opacity: 0.116; }\r\n  73.93% { opacity: 0.055; }\r\n  77.79% { opacity: 0.016; }\r\n  81.66% { opacity: 0.003; }\r\n  to { opacity: 0; }\r\n}\r\n\r\n@keyframes cx-usage-beat-limit {\r\n  0% { transform: scale(1); }\r\n  4.53% { transform: scale(1.0009); }\r\n  5.47% { transform: scale(1.0049); }\r\n  6.41% { transform: scale(1.0167); }\r\n  7.39% { transform: scale(1.0359); }\r\n  8.33% { transform: scale(1.0458); }\r\n  9.27% { transform: scale(1.0359); }\r\n  10.24% { transform: scale(1.0167); }\r\n  11.18% { transform: scale(1.0049); }\r\n  12.16% { transform: scale(1.0008); }\r\n  15.96% { transform: scale(1.0005); }\r\n  17.18% { transform: scale(1.0027); }\r\n  18.41% { transform: scale(1.0093); }\r\n  19.59% { transform: scale(1.0194); }\r\n  20.82% { transform: scale(1.025); }\r\n  22.04% { transform: scale(1.0194); }\r\n  23.27% { transform: scale(1.009); }\r\n  24.45% { transform: scale(1.0027); }\r\n  25.67% { transform: scale(1.0005); }\r\n  73.92% { transform: scale(1.0009); }\r\n  74.86% { transform: scale(1.0049); }\r\n  75.8% { transform: scale(1.0167); }\r\n  76.78% { transform: scale(1.0359); }\r\n  77.71% { transform: scale(1.0458); }\r\n  78.65% { transform: scale(1.0359); }\r\n  79.63% { transform: scale(1.0167); }\r\n  80.57% { transform: scale(1.0049); }\r\n  81.55% { transform: scale(1.0008); }\r\n  85.35% { transform: scale(1.0005); }\r\n  86.57% { transform: scale(1.0027); }\r\n  87.8% { transform: scale(1.0093); }\r\n  88.98% { transform: scale(1.0194); }\r\n  90.2% { transform: scale(1.025); }\r\n  91.43% { transform: scale(1.0194); }\r\n  92.65% { transform: scale(1.009); }\r\n  93.84% { transform: scale(1.0027); }\r\n  95.06% { transform: scale(1.0005); }\r\n  to { transform: scale(1); }\r\n}\r\n\r\n@keyframes cx-usage-beat-limit-glow {\r\n  0% { opacity: 0; }\r\n  4.53% { opacity: 0.006; }\r\n  5.47% { opacity: 0.035; }\r\n  6.41% { opacity: 0.12; }\r\n  7.39% { opacity: 0.258; }\r\n  8.33% { opacity: 0.329; }\r\n  9.27% { opacity: 0.258; }\r\n  10.24% { opacity: 0.12; }\r\n  11.18% { opacity: 0.035; }\r\n  12.16% { opacity: 0.006; }\r\n  15.96% { opacity: 0.004; }\r\n  17.18% { opacity: 0.021; }\r\n  18.41% { opacity: 0.073; }\r\n  19.59% { opacity: 0.151; }\r\n  20.82% { opacity: 0.194; }\r\n  22.04% { opacity: 0.151; }\r\n  23.27% { opacity: 0.07; }\r\n  24.45% { opacity: 0.021; }\r\n  25.67% { opacity: 0.004; }\r\n  73.92% { opacity: 0.006; }\r\n  74.86% { opacity: 0.035; }\r\n  75.8% { opacity: 0.12; }\r\n  76.78% { opacity: 0.258; }\r\n  77.71% { opacity: 0.329; }\r\n  78.65% { opacity: 0.258; }\r\n  79.63% { opacity: 0.12; }\r\n  80.57% { opacity: 0.035; }\r\n  81.55% { opacity: 0.006; }\r\n  85.35% { opacity: 0.004; }\r\n  86.57% { opacity: 0.021; }\r\n  87.8% { opacity: 0.073; }\r\n  88.98% { opacity: 0.151; }\r\n  90.2% { opacity: 0.194; }\r\n  91.43% { opacity: 0.151; }\r\n  92.65% { opacity: 0.07; }\r\n  93.84% { opacity: 0.021; }\r\n  95.06% { opacity: 0.004; }\r\n  to { opacity: 0; }\r\n}\r\n";
 
 // src/styles/shell.css
-var shell_default = "/* shell */\r\n";
+var shell_default = "/* shell */\r\n\r\n/* \u53BB\u6389\u804A\u5929\u533A\u6700\u4E0A\u65B9\u7684\u4F1A\u8BDD\u6807\u7B7E\u680F\uFF08\u8FDE\u540C\u300C+\u300D\uFF09\u3002\u53EA\u8BA4\u88C5\u7740 workspace / session-tile \u6807\u7B7E\u7684\u90A3\u6761\uFF0C\r\n   \u5DE6\u4FA7\u300C\u4F1A\u8BDD | \u673A\u5668\u4EBA\u300D\u548C\u53F3\u4FA7\u680F\u7684\u6807\u7B7E\u680F\u4E0D\u53D7\u5F71\u54CD\u3002\u5207\u6362\u4F1A\u8BDD\u7528\u5DE6\u4FA7\u4F1A\u8BDD\u5217\u8868\u6216 \u23181\u2026\u23189\u3001\u2303Tab\uFF0C\u65B0\u5EFA\u7528 \u2318T\u3002\r\n   \u6807\u7B7E\u8BA9\u51FA\u7684\u90A3\u6BB5\u6807\u9898\u680F\u4EA4\u7ED9\u62D6\u62FD\u628A\u624B\uFF0C\u7A97\u53E3\u7167\u5E38\u53EF\u62D6\uFF1B\u5934\u90E8\u9AD8\u5EA6\u56DE\u843D\u5230\u6807\u9898\u680F\u672C\u8EAB\uFF0C\u7A84\u7A97\u53E3\u4E0B\u4E0D\u7559\u7A7A\u884C\u3002 */\r\n:root [data-panel-header]:has([data-tree-tab='workspace'], [data-tree-tab^='session-tile:']) {\r\n  height: auto !important;\r\n}\r\n\r\n:root [data-panel-header]:has([data-tree-tab='workspace'], [data-tree-tab^='session-tile:']) [data-zone-tabstrip] {\r\n  display: none;\r\n}\r\n\r\n:root [data-panel-header]:has([data-tree-tab='workspace'], [data-tree-tab^='session-tile:']) > [data-window-drag-handle] {\r\n  flex: 1 1 0;\r\n}\r\n";
+
+// src/styles/stack.ts
+var C = "[data-slot=aui_assistant-message-content]";
+var T = "[data-slot=aui_thinking-disclosure]";
+var S = `:is(${T},[data-tool-group],[data-tool-row])`;
+var E = "[data-tool-group]:not(:has(> * > *))";
+var TV = `:is([data-tool-group],[data-tool-row]):not(${E},[inert])`;
+var chain = (n) => ` + ${S}`.repeat(n);
+var NT = `:is(${T},${E})`;
+var lead = (n) => [`:not(${S})${` + ${NT}`.repeat(n)} + *`, n ? `${NT}:first-child${` + ${NT}`.repeat(n - 1)} + *` : ":first-child"];
+var STARTS = [0, 1, 2, 3].flatMap(lead).join(",");
+var FIRST = `${TV}:is(${STARTS})`;
+var MEMBER = `${TV}:not(${STARTS})`;
+var TB = ":is([data-tool-group],[data-tool-row])";
+var TOOL = `${TB} .group\\/disclosure-row`;
+var NEXT = `:has(${[0, 1, 2, 3].map((n) => `${chain(n)} + ${TOOL}`).join(",")})`;
+var TOGGLE = `${T}:is(:not(${S}) + *,:first-child):has(+ ${TOOL}):has(${[0, 1, 2, 3].map((n) => `+ ${TB}${chain(n)} + ${TOOL}`).join(",")})`;
+var HEAD = `${FIRST}:not(${TOGGLE} + *)`;
+var LIVE = "[data-slot=aui_assistant-message-root]:has(> [data-message-streaming=true])";
+var FOLD = 60;
+var COUNT = 24;
+var fold = Array.from({ length: FOLD }).reduce(
+  (inner) => `& + ${S} { display: none; --cx-cell-line: transparent; --cx-cell-pad: 0px; --cx-cell-gap: var(--scaffold-block-gap); ${inner} }`,
+  ""
+);
+var bits = Array.from({ length: COUNT }, (_, i) => `&:has(${chain(i)} + ${TOOL}) { --cx-t${i + 1}: 1; }`).join("\n  ");
+var sum = Array.from({ length: COUNT }, (_, i) => `var(--cx-t${i + 1}, 0)`).join(" + ");
+var style = (name, say2) => `@counter-style ${name} { system: fixed 1; symbols: ${Array.from({ length: COUNT }, (_, i) => `'${say2(i + 1)}'`).join(" ")}; fallback: cx-blank; }`;
+var say = `flex: none;
+      white-space: pre;
+      font-size: var(--conversation-tool-font-size);
+      line-height: var(--conversation-line-height);
+      color: var(--conversation-scaffold-text);`;
+var flatten = `
+    border-color: transparent;
+    border-radius: 0;
+    background: transparent !important;
+
+    & > :first-child {
+      border-bottom-width: 0;
+      padding: 0;
+    }`;
+var stack_default = `
+${C} > ${E} { display: none; }
+
+/* \u6BB5\u5185\u7684\u601D\u8003\u4E0D\u663E\u793A\uFF0C\u548C codex-ui \u9ED8\u8BA4\u89C6\u56FE\u4E00\u6837\uFF1B\u843D\u5355\u7684\u601D\u8003\u7167\u5E38\u663E\u793A\uFF0C\u5F53\u5F00\u5173\u7684\u90A3\u6761\u53EA\u7559\u6458\u8981\u884C */
+${C} > :is(${S} + ${T},${T}:has(+ ${S})):not(${TOGGLE}) { display: none; }
+
+/* \u6B63\u5728\u8F93\u51FA\u7684\u6D88\u606F\uFF1A\u6700\u672B\u4E00\u4E2A\u5DE5\u5177\u5757\u7559\u7740\uFF0C\u8BFB\u4F5C codex-ui \u90A3\u4E00\u884C\u300C\u6B63\u5728\u505A\u4EC0\u4E48\u300D\uFF08\u540E\u9762\u53EA\u5269\u5DE5\u4F5C\u884C\uFF09 */
+${LIVE} > ${C} > ${TV}:not(:has(+ :not([data-slot=aui_turn-activity],[data-slot=aui_response-loading]))) {
+  display: revert-layer !important;
+}
+
+@counter-style cx-blank { system: cyclic; symbols: ''; }
+${style("cx-more-en", (n) => `, and ${n} more`)}
+${style("cx-more-en-plus", (n) => `, and ${n}+ more`)}
+${style("cx-more-zh", (n) => `\uFF0C\u4EE5\u53CA\u53E6\u5916 ${n} \u9879\u64CD\u4F5C`)}
+${style("cx-more-zh-plus", (n) => `\uFF0C\u4EE5\u53CA\u53E6\u5916 ${n}+ \u9879\u64CD\u4F5C`)}
+${style("cx-used-en", (n) => `Used ${n} tools`)}
+${style("cx-used-en-plus", (n) => `Used ${n}+ tools`)}
+${style("cx-used-zh", (n) => `\u5DF2\u4F7F\u7528 ${n} \u4E2A\u5DE5\u5177`)}
+${style("cx-used-zh-plus", (n) => `\u5DF2\u4F7F\u7528 ${n}+ \u4E2A\u5DE5\u5177`)}
+
+${C} > :is(${HEAD},${TOGGLE}) {
+  ${bits}
+}
+
+/* \u2500\u2500 \u4EE5\u601D\u8003\u5F00\u5934\u7684\u6BB5\uFF1A\u8FD9\u6761\u601D\u8003\u5C31\u662F\u6458\u8981\u884C\u300C\u5DF2\u4F7F\u7528 N \u4E2A\u5DE5\u5177\u300D\uFF0C\u601D\u8003\u5185\u5BB9\u4E0D\u663E\u793A \u2500\u2500 */
+${C} > ${TOGGLE} {
+  --cx-more-style: cx-used-en;
+
+  &:has(${chain(COUNT + 1)}) { --cx-more-style: cx-used-en-plus; }
+  :root:lang(zh) & { --cx-more-style: cx-used-zh; }
+  :root:lang(zh) &:has(${chain(COUNT + 1)}) { --cx-more-style: cx-used-zh-plus; }
+
+  /* \u5173\u7740\u65F6\u6574\u6BB5\u6298\u53E0\u3002Hermes \u5B9E\u65F6\u601D\u8003\u7559\u4E0B\u7684\u9884\u89C8\uFF08max-h-40 \u7684\u601D\u8003\u4F53\uFF09\u4E00\u76F4\u5F00\u7740\uFF0C\u4E5F\u6309\u5173\u7740\u7B97\uFF0C\u4E0D\u8BA9\u6574\u6BB5\u9ED8\u8BA4\u5C55\u5F00 */
+  &:is(:has([aria-expanded=false]),:has(> [data-slot=aui_thinking-body][class~=max-h-40])) { ${fold} }
+
+  & > [data-slot=aui_thinking-body] { display: none; }
+
+  &:has(> [data-slot=aui_thinking-body][class~=max-h-40]) > .group\\/disclosure-row::after { transform: none; }
+
+  & > .group\\/disclosure-row > button[aria-expanded] {
+    column-gap: 0;
+
+    & > :first-child { display: none; }
+
+    &::after {
+      counter-reset: cx-more calc(${sum});
+      content: counter(cx-more, var(--cx-more-style, cx-used-en));
+      ${say}
+    }
+  }
+
+  & > .group\\/disclosure-row:hover > button[aria-expanded]::after { color: var(--ui-text-secondary); }
+}
+
+/* \u2500\u2500 \u4E0D\u4EE5\u601D\u8003\u5F00\u5934\u7684\u6BB5\uFF1A\u7B2C\u4E00\u4E2A\u5DE5\u5177\u884C\u5F53\u6458\u8981\u884C \u2500\u2500 */
+${C} > ${HEAD} {
+  --cx-more-style: cx-more-en;
+
+  &:has(${chain(COUNT + 1)}) { --cx-more-style: cx-more-en-plus; }
+  :root:lang(zh) & { --cx-more-style: cx-more-zh; }
+  :root:lang(zh) &:has(${chain(COUNT + 1)}) { --cx-more-style: cx-more-zh-plus; }
+
+  /* \u6BB5\u9996\u6709\u5F00\u5173\u5E76\u4E14\u5173\u7740\u624D\u6298\u53E0\u3002\u6CA1\u6709\u5F00\u5173\u7684\u884C\uFF08\u6CA1\u6709\u53EF\u5C55\u5F00\u7684\u5185\u5BB9\uFF09\u4E0D\u6298\u53E0\uFF0C\u514D\u5F97\u6536\u8D77\u540E\u518D\u4E5F\u6253\u4E0D\u5F00 */
+  &:has([aria-expanded=false]):not(:has([aria-expanded=true])) { ${fold} }
+
+  /* \u6BB5\u9996\u81EA\u5DF1\u90A3\u4E00\u884C\uFF1A\u5355\u72EC\u6210\u884C\u7684\u5DE5\u5177\u884C\u3001\u5355\u8C03\u7528\u7EC4\u91CC\u7684\u90A3\u4E00\u884C\u3001\u591A\u8C03\u7528\u7EC4\u7684\u6458\u8981\u884C */
+  &[data-tool-row] > :first-child,
+  & > :first-child > [data-tool-row] > :first-child,
+  & > [data-tool-summary] {
+    /* \u6309\u94AE\u91CC\u539F\u6765\u7684\u7BAD\u5934\u5DF2\u88AB\u9690\u85CF\uFF0C\u53BB\u6389\u95F4\u8DDD\uFF0C\u8BA1\u6570\u7D27\u8DDF\u6807\u9898\uFF1B\u5B57\u53F7\u3001\u989C\u8272\u8DDF\u6807\u9898\u4E00\u81F4 */
+    & > .group\\/disclosure-row > button[aria-expanded] { column-gap: 0; }
+
+    & > .group\\/disclosure-row > button[aria-expanded]::after {
+      counter-reset: cx-more calc(${sum});
+      content: counter(cx-more, var(--cx-more-style, cx-more-en));
+      ${say}
+    }
+
+    & > .group\\/disclosure-row:hover > button[aria-expanded]::after { color: var(--ui-text-secondary); }
+  }
+
+  /* \u2500\u2500 \u5C55\u5F00\u540E\u7684\u7EC6\u73AF\u5361\u7247\uFF08codex-ui .tool-group-card\uFF09\uFF1A\u6BB5\u9996\u8FD9\u4E00\u884C\u7559\u5728\u5361\u7247\u5916\uFF0C\u5B83\u7684\u8F93\u51FA\u662F\u7B2C\u4E00\u683C \u2500\u2500 */
+  &${NEXT} {
+    &[data-tool-row][data-tool-open],
+    & > :first-child > [data-tool-row][data-tool-open] {
+      border-width: 0;
+      border-radius: 0;
+      background: transparent !important;
+
+      & > :first-child {
+        border-bottom-width: 0;
+        padding: 0;
+      }
+
+      /* \u6458\u8981\u884C\u4E0A\u4E0D\u653E\u300C\u5173\u6389\u8FD9\u4E00\u884C\u300D\uFF1A\u5173\u6389\u6BB5\u9996\u4F1A\u628A\u6574\u6BB5\u5E26\u8D70 */
+      & > :first-child > .group\\/disclosure-row > span[class~=ml-auto] { display: none; }
+    }
+
+    &[data-tool-row][data-tool-open] > :last-child,
+    & > :first-child > [data-tool-row][data-tool-open] > :last-child,
+    & > [data-tool-summary] + * {
+      margin-top: 6px;
+      padding: 8px 12px;
+      border: 1px solid var(--cx-line);
+      border-bottom-width: 0;
+      border-radius: var(--cx-radius-card) var(--cx-radius-card) 0 0;
+
+      & [data-tool-row][data-tool-open] { ${flatten} }
+    }
+  }
+}
+
+/* \u540E\u9762\u6BCF\u4E2A\u5DE5\u5177\u5757\u5404\u5360\u4E00\u683C\uFF1A\u7EC6\u7EBF\u5206\u9694\uFF0C\u76D6\u6389 Hermes \u7684\u76F8\u90BB\u95F4\u8DDD\u3002\u4EE5\u601D\u8003\u5F00\u5934\u7684\u6BB5\uFF0C\u7B2C\u4E00\u4E2A\u5DE5\u5177\u5757\u5C31\u662F\u7B2C\u4E00\u683C */
+${C} > :is(${MEMBER},${TOGGLE} + ${TV}) {
+  margin-block: var(--cx-cell-gap, 0px) 0;
+  padding: var(--cx-cell-pad, 6px 12px);
+  border: 1px solid var(--cx-cell-line, var(--cx-line));
+  border-bottom-width: 0;
+  border-radius: 0;
+  background: transparent !important;
+
+  &:is(${TOGGLE} + *) {
+    margin-top: 6px;
+    border-radius: var(--cx-radius-card) var(--cx-radius-card) 0 0;
+  }
+
+  &:not(${NEXT}) {
+    border-bottom-width: 1px;
+    border-radius: 0 0 var(--cx-radius-card) var(--cx-radius-card);
+  }
+
+  &[data-tool-row][data-tool-open] {
+    & > :first-child {
+      border-bottom-width: 0;
+      padding: 0;
+    }
+  }
+
+  & [data-tool-row][data-tool-open] { ${flatten} }
+}
+`;
 
 // src/styles/tokens.css
 var tokens_default = "/* \u2500\u2500 Claude UI \xB7 tokens \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n   Hermes \u7684\u8868\u9762\u8272\u7531\u79CD\u5B50\u8272 color-mix \u63A8\u5BFC\uFF08styles.css @layer base\uFF09\u3002\u8FD9\u91CC\u4E0D\u5206\u5C42\uFF0C\r\n   \u76F4\u63A5\u628A\u63A8\u5BFC\u7ED3\u679C\u9489\u56DE\u8BBE\u8BA1\u503C\uFF0C\u5E76\u53BB\u6389\u5F3A\u8C03\u8272\u5728\u4E2D\u6027\u586B\u5145\u548C\u63CF\u8FB9\u91CC\u7684\u63BA\u8272\uFF1A\r\n   codex-ui \u7684\u5C42\u6B21\u53EA\u9760\u58A8\u8272\u900F\u660E\u5EA6\uFF0C\u84DD\u8272\u53EA\u7559\u7ED9\u4EA4\u4E92\u4E0E Hermes \u7684\u54C1\u724C\u5143\u7D20\u3002 */\r\n\r\n:root {\r\n  --radius-scalar: 0.4;\r\n\r\n  --ui-bg-chrome: var(--theme-background-seed);\r\n  --ui-bg-sidebar: var(--theme-sidebar-seed);\r\n  --ui-bg-editor: var(--theme-card-seed);\r\n  --ui-bg-elevated: var(--theme-elevated-seed);\r\n  --ui-chat-bubble-background: var(--theme-bubble-seed);\r\n  --ui-widget-surface-background: var(--theme-card-seed);\r\n\r\n  --theme-fill-primary-accent-mix: 0%;\r\n  --theme-fill-secondary-accent-mix: 0%;\r\n  --theme-fill-tertiary-accent-mix: 0%;\r\n  --theme-fill-quaternary-accent-mix: 0%;\r\n  --theme-fill-quinary-accent-mix: 0%;\r\n  --theme-stroke-primary-accent-mix: 0%;\r\n  --theme-stroke-secondary-accent-mix: 0%;\r\n  --theme-stroke-tertiary-accent-mix: 0%;\r\n  --theme-stroke-quaternary-accent-mix: 0%;\r\n  --theme-row-hover-accent-mix: 0%;\r\n  --theme-row-active-accent-mix: 0%;\r\n  --theme-control-hover-accent-mix: 0%;\r\n  --theme-control-active-accent-mix: 0%;\r\n\r\n  --ui-blue: var(--theme-primary);\r\n\r\n  /* codex-ui \u52A8\u6548\uFF08tokens.css:235-247\uFF09 */\r\n  --cx-dur-fast: 60ms;\r\n  --cx-dur-snap: 120ms;\r\n  --cx-dur-base: 200ms;\r\n  --cx-dur-sheet: 300ms;\r\n  --cx-dur-slow: 450ms;\r\n  --cx-ease-out: cubic-bezier(0.165, 0.84, 0.44, 1);\r\n  --cx-ease-snap: cubic-bezier(0.32, 0.72, 0, 1);\r\n  --cx-overshoot: cubic-bezier(0.34, 1.3, 0.64, 1);\r\n\r\n  /* \u672C\u63D2\u4EF6\u81EA\u5DF1\u7684\u7EC4\u4EF6\u4E0E\u91CD\u5851\u89C4\u5219\u5171\u7528\u7684\u51E0\u4E2A\u91CF */\r\n  --cx-surface: var(--ui-bg-editor);\r\n  --cx-popover: var(--ui-bg-elevated);\r\n  --cx-hover: color-mix(in srgb, var(--ui-base) 5%, transparent);\r\n  --cx-selected: color-mix(in srgb, var(--ui-base) 10%, transparent);\r\n  --cx-line: color-mix(in srgb, var(--ui-base) 10%, transparent);\r\n  --cx-line-strong: color-mix(in srgb, var(--ui-base) 20%, transparent);\r\n  --cx-edge: 0 0 0 1px var(--cx-line);\r\n  --cx-edge-strong: 0 0 0 1px var(--cx-line-strong);\r\n  --cx-shadow-popover: 0 8px 24px #0000001f, 0 2px 6px #00000014;\r\n  --cx-shadow-dialog: 0 4px 8px #0b0b0b14, 0 12px 28px -2px #0b0b0b14;\r\n  --cx-shadow-composer: 0 0.25rem 1.25rem color-mix(in srgb, #000 3.5%, transparent);\r\n  --cx-shadow-composer-focus: 0 0.25rem 1.25rem color-mix(in srgb, #000 7.5%, transparent);\r\n  --cx-radius-control: 4px;\r\n  --cx-radius-card: 6px;\r\n  --cx-radius-dock: 10px;\r\n}\r\n\r\n:root:not(.dark) {\r\n  --ui-text-primary: #0b0b0b;\r\n  --ui-text-secondary: #52514e;\r\n  --ui-text-tertiary: #898781;\r\n  --ui-text-quaternary: color-mix(in srgb, #0b0b0b 35%, transparent);\r\n  --conversation-scaffold-text: #898781;\r\n  --conversation-scaffold-meta: color-mix(in srgb, #0b0b0b 35%, transparent);\r\n\r\n  --ui-row-hover-background: color-mix(in srgb, #0b0b0b 4.5%, transparent);\r\n  --ui-row-active-background: color-mix(in srgb, #0b0b0b 7%, transparent);\r\n  --ui-control-hover-background: color-mix(in srgb, #0b0b0b 5%, transparent);\r\n  --ui-control-active-background: color-mix(in srgb, #0b0b0b 8%, transparent);\r\n\r\n  --ui-red: #d03b3b;\r\n  --ui-green: #1e9e3c;\r\n  --ui-yellow: #c98a00;\r\n  --ui-orange: #c5621b;\r\n  --ui-purple: #7161e0;\r\n  --ui-diff-add-border: #1e9e3c;\r\n  --ui-diff-add-background: color-mix(in srgb, #1e9e3c 14%, transparent);\r\n  --ui-diff-add-foreground: #157a2e;\r\n  --ui-diff-remove-border: #cd2054;\r\n  --ui-diff-remove-background: color-mix(in srgb, #cd2054 12%, transparent);\r\n  --ui-diff-remove-foreground: #a8173f;\r\n\r\n  --ui-inline-code-background: color-mix(in srgb, #0b0b0b 5%, transparent);\r\n  --ui-inline-code-foreground: #8e2626;\r\n  --ui-selection-background: color-mix(in srgb, #1f5fe0 20%, transparent);\r\n  --dt-scrollbar-thumb: rgb(30 30 29 / 35%);\r\n\r\n  --cx-warning: #734500;\r\n  --cx-warning-fill: #fab219;\r\n  --cx-warning-bg: #f9dca4;\r\n  --cx-danger: #8e2626;\r\n  --cx-success: #006300;\r\n  --cx-pro: #4a3aa7;\r\n  --cx-pro-fill: #7161e0;\r\n  --cx-git-add: #1e9e3c;\r\n  --cx-git-remove: #cd2054;\r\n}\r\n\r\n:root.dark {\r\n  --ui-text-primary: #f0efec;\r\n  --ui-text-secondary: #c3c2b7;\r\n  --ui-text-tertiary: #898781;\r\n  --ui-text-quaternary: color-mix(in srgb, #ffffff 35%, transparent);\r\n  --conversation-scaffold-text: #898781;\r\n  --conversation-scaffold-meta: color-mix(in srgb, #ffffff 35%, transparent);\r\n\r\n  --ui-row-hover-background: color-mix(in srgb, #ffffff 7.5%, transparent);\r\n  --ui-row-active-background: color-mix(in srgb, #ffffff 11%, transparent);\r\n  --ui-control-hover-background: color-mix(in srgb, #ffffff 7.5%, transparent);\r\n  --ui-control-active-background: color-mix(in srgb, #ffffff 12%, transparent);\r\n\r\n  --ui-red: #ec7e7e;\r\n  --ui-green: #32d74b;\r\n  --ui-yellow: #db9300;\r\n  --ui-orange: #fa832e;\r\n  --ui-purple: #a096eb;\r\n  --ui-diff-add-border: #32d74b;\r\n  --ui-diff-add-background: color-mix(in srgb, #32d74b 16%, transparent);\r\n  --ui-diff-add-foreground: color-mix(in srgb, #32d74b 70%, #fff);\r\n  --ui-diff-remove-border: #ff2c56;\r\n  --ui-diff-remove-background: color-mix(in srgb, #ff2c56 16%, transparent);\r\n  --ui-diff-remove-foreground: color-mix(in srgb, #ff2c56 62%, #fff);\r\n\r\n  --ui-inline-code-background: color-mix(in srgb, #ffffff 7%, transparent);\r\n  --ui-inline-code-foreground: #ec7e7e;\r\n  --ui-selection-background: color-mix(in srgb, #7aa2ff 28%, transparent);\r\n  --dt-scrollbar-thumb: rgb(225 224 217 / 35%);\r\n\r\n  --cx-hover: color-mix(in srgb, #ffffff 7.5%, transparent);\r\n  --cx-selected: color-mix(in srgb, #ffffff 15%, transparent);\r\n  --cx-edge: inset 0 0 0 1px var(--cx-line);\r\n  --cx-edge-strong: inset 0 0 0 1px var(--cx-line-strong);\r\n  --cx-shadow-popover: 0 8px 24px #0000003d, 0 2px 6px #00000029;\r\n  --cx-shadow-dialog: 0 4px 8px #0000003d, 0 12px 28px -2px #0000003d;\r\n\r\n  --cx-warning: #db9300;\r\n  --cx-warning-fill: #fab219;\r\n  --cx-warning-bg: #311a00;\r\n  --cx-danger: #ec7e7e;\r\n  --cx-success: #0ca30c;\r\n  --cx-pro: #a096eb;\r\n  --cx-pro-fill: #7161e0;\r\n  --cx-git-add: #32d74b;\r\n  --cx-git-remove: #ff2c56;\r\n}\r\n\r\n/* codex-ui \u7684\u6587\u5B57\u9AD8\u5149\uFF08base.css:1615 / tokens.css:963\uFF09\uFF1A3s \u4E00\u6B21\uFF0C\u9996\u5C3E\u5404\u505C 15%\u3002\r\n   \u8986\u76D6 Hermes \u7684 tw-shimmer\uFF0C\u8BA9\u5DE5\u4F5C\u884C\u3001\u8FD0\u884C\u4E2D\u5DE5\u5177\u884C\u7528\u540C\u4E00\u79CD\u5149\u3002 */\r\n@keyframes cx-shimmer {\r\n  0%,\r\n  15% {\r\n    background-position: 83.333% 0;\r\n    animation-timing-function: cubic-bezier(0.714, 0.121, 0.211, 0.888);\r\n  }\r\n  85%,\r\n  100% {\r\n    background-position: 16.667% 0;\r\n  }\r\n}\r\n\r\n@keyframes cx-breathe {\r\n  0%,\r\n  100% {\r\n    filter: brightness(0.96);\r\n    transform: scale(0.86);\r\n  }\r\n  50% {\r\n    filter: brightness(1.06);\r\n    transform: scale(1);\r\n  }\r\n}\r\n\r\n@media (prefers-reduced-motion: reduce) {\r\n  :root .shimmer,\r\n  :root .cx-shimmer,\r\n  :root [data-cx-breathe] {\r\n    animation: none !important;\r\n  }\r\n}\r\n";
@@ -1759,7 +1943,7 @@ var transcript_default = "/* \u2500\u2500 Claude UI \xB7 transcript \u2500\u2500
 
 // src/plugin.tsx
 import { jsx as jsx6 } from "react/jsx-runtime";
-var customCSS = [tokens_default, shell_default, transcript_default, composer_default, overlays_default, components_default, effort_default, quota_default].join("\n");
+var customCSS = [tokens_default, shell_default, transcript_default, stack_default, composer_default, overlays_default, components_default, effort_default, quota_default].join("\n");
 var plugin_default = {
   id: PLUGIN_ID,
   name: "Claude UI",

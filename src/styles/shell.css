@@ -1,1 +1,16 @@
 /* shell */
+
+/* 去掉聊天区最上方的会话标签栏（连同「+」）。只认装着 workspace / session-tile 标签的那条，
+   左侧「会话 | 机器人」和右侧栏的标签栏不受影响。切换会话用左侧会话列表或 ⌘1…⌘9、⌃Tab，新建用 ⌘T。
+   标签让出的那段标题栏交给拖拽把手，窗口照常可拖；头部高度回落到标题栏本身，窄窗口下不留空行。 */
+:root [data-panel-header]:has([data-tree-tab='workspace'], [data-tree-tab^='session-tile:']) {
+  height: auto !important;
+}
+
+:root [data-panel-header]:has([data-tree-tab='workspace'], [data-tree-tab^='session-tile:']) [data-zone-tabstrip] {
+  display: none;
+}
+
+:root [data-panel-header]:has([data-tree-tab='workspace'], [data-tree-tab^='session-tile:']) > [data-window-drag-handle] {
+  flex: 1 1 0;
+}
