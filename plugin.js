@@ -915,32 +915,20 @@ var BUNDLES = {
       limited: "Limit reached",
       ring: (name, percent) => `Plan usage: ${name} ${percent}% used`
     },
+    // 文件夹、分支、上下文用量、待办、轮次、停止、刷新、登录等用 Hermes 官方词条（useI18n），这里只放官方没有的。
+    // 标签名不叫 Session：中文下会和左侧原生的「会话」重名。
     rail: {
-      title: "Session",
-      toggle: "Session panel",
+      title: "Session details",
       environment: "Environment",
       goal: "Goal",
-      context: "Context",
       connectors: "Connectors",
       background: "Background",
-      folder: "Folder",
-      branch: "Branch",
-      project: "Project",
-      gateway: "Gateway",
-      noFolder: "No folder",
-      noSession: "Start a session to see its details here.",
-      noGoal: "No goal or to-dos yet",
-      todos: (done, total) => `${done} / ${total} to-dos`,
-      turns: (used, max) => `${used} / ${max} turns`,
       compress: "Compress",
-      signIn: "Sign in",
-      refresh: "Refresh",
+      compressUnavailable: "This chat's input isn't on screen. Switch to it, then compress.",
+      noSession: "No session",
+      noGoal: "No goal or to-dos",
       noConnectors: "No MCP servers",
-      tools: (n) => `${n} tools`,
-      noBackground: "Nothing in the background",
-      stop: "Stop",
-      finished: "Finished",
-      subagent: "Subagent"
+      noBackground: "Nothing running"
     }
   },
   zh: {
@@ -956,31 +944,17 @@ var BUNDLES = {
       ring: (name, percent) => `\u5957\u9910\u7528\u91CF\uFF1A${name} \u5DF2\u7528 ${percent}%`
     },
     rail: {
-      title: "\u4F1A\u8BDD",
-      toggle: "\u4F1A\u8BDD\u9762\u677F",
+      title: "\u4F1A\u8BDD\u8BE6\u60C5",
       environment: "\u73AF\u5883",
       goal: "\u76EE\u6807",
-      context: "\u4E0A\u4E0B\u6587",
       connectors: "\u8FDE\u63A5\u5668",
       background: "\u540E\u53F0",
-      folder: "\u6587\u4EF6\u5939",
-      branch: "\u5206\u652F",
-      project: "\u9879\u76EE",
-      gateway: "\u7F51\u5173",
-      noFolder: "\u672A\u9009\u62E9\u6587\u4EF6\u5939",
-      noSession: "\u5F00\u59CB\u4E00\u4E2A\u4F1A\u8BDD\u540E\uFF0C\u8FD9\u91CC\u4F1A\u663E\u793A\u5B83\u7684\u8BE6\u60C5\u3002",
-      noGoal: "\u8FD8\u6CA1\u6709\u76EE\u6807\u6216\u5F85\u529E",
-      todos: (done, total) => `\u5F85\u529E ${done} / ${total}`,
-      turns: (used, max) => `${used} / ${max} \u8F6E`,
       compress: "\u538B\u7F29",
-      signIn: "\u767B\u5F55",
-      refresh: "\u5237\u65B0",
+      compressUnavailable: "\u8FD9\u4E2A\u4F1A\u8BDD\u7684\u8F93\u5165\u6846\u4E0D\u5728\u5C4F\u5E55\u4E0A\uFF0C\u5148\u5207\u5230\u5B83\u518D\u538B\u7F29\u3002",
+      noSession: "\u6CA1\u6709\u4F1A\u8BDD",
+      noGoal: "\u6CA1\u6709\u76EE\u6807\u6216\u5F85\u529E",
       noConnectors: "\u6CA1\u6709 MCP \u670D\u52A1\u5668",
-      tools: (n) => `${n} \u4E2A\u5DE5\u5177`,
-      noBackground: "\u540E\u53F0\u6CA1\u6709\u4EFB\u52A1",
-      stop: "\u505C\u6B62",
-      finished: "\u5DF2\u7ED3\u675F",
-      subagent: "\u5B50\u4EE3\u7406"
+      noBackground: "\u540E\u53F0\u6CA1\u6709\u4EFB\u52A1"
     }
   }
 };
@@ -1296,47 +1270,210 @@ function QuotaControl() {
 }
 
 // src/rail/index.tsx
-import { atom as atom2, compactNumber, ConnectionGlyph, host as host3, PANES_AREA, useI18n as useI18n3, usePluginI18n as usePluginI18n3, useValue as useValue3 } from "@hermes/plugin-sdk";
-import { useEffect as useEffect5, useState as useState5 } from "react";
+import {
+  atom as atom2,
+  Button,
+  Codicon,
+  compactNumber,
+  ConnectionGlyph,
+  DisclosureCaret,
+  GlyphSpinner,
+  host as host3,
+  PANES_AREA,
+  queryClient,
+  Tip,
+  useI18n as useI18n3,
+  usePluginI18n as usePluginI18n3,
+  useQuery,
+  useValue as useValue3
+} from "@hermes/plugin-sdk";
+import { useEffect as useEffect5, useReducer, useState as useState5 } from "react";
+
+// src/rail/logic.ts
+var profileKey = (profile) => (profile ?? "").trim() || "default";
+var ownerKey = (owner) => owner ? `${owner.connectionId}::${owner.profile}` : "";
+function isActiveOwner(owner, active) {
+  return !owner || owner.connectionId === (active.connectionId ?? "") && owner.profile === profileKey(active.profile);
+}
+function findRoute(owner, routes) {
+  return routes.find((route) => route.connectionId === owner.connectionId && profileKey(route.profile) === owner.profile) ?? null;
+}
+var ROUTING_UNAVAILABLE = "Hermes Desktop connection routing unavailable";
+function routeResolver(profileRoutes) {
+  const cache = /* @__PURE__ */ new Map();
+  return (owner) => {
+    const key = ownerKey(owner);
+    let pending = cache.get(key);
+    if (!pending) {
+      pending = Promise.resolve().then(profileRoutes).then(
+        (list) => findRoute(owner, list ?? []),
+        (error) => {
+          if (String(error?.message ?? error).includes(ROUTING_UNAVAILABLE)) {
+            return "active";
+          }
+          throw error;
+        }
+      );
+      cache.set(key, pending);
+      pending.then(
+        (found) => {
+          if (!found) {
+            cache.delete(key);
+          }
+        },
+        () => cache.delete(key)
+      );
+    }
+    return pending;
+  };
+}
+function contextReading(usage, breakdown) {
+  const source = breakdown?.context_max > 0 ? breakdown : usage;
+  const max = source?.context_max ?? 0;
+  if (!(max > 0)) {
+    return null;
+  }
+  return {
+    used: source.context_used ?? 0,
+    max,
+    percent: Math.max(0, Math.min(100, Math.round(source.context_percent ?? 0))),
+    estimated: Boolean(source.context_estimated)
+  };
+}
+function segments(categories, used) {
+  const total = categories.reduce((sum2, c) => sum2 + (c.tokens || 0), 0) || used || 1;
+  return categories.map((c) => ({ ...c, width: (c.tokens || 0) / total * 100 }));
+}
+var processState = (process) => process?.status !== "exited" ? "running" : typeof process.exit_code === "number" && process.exit_code !== 0 ? "failed" : "done";
+var SUBAGENT_DONE = /* @__PURE__ */ new Set(["completed", "failed", "interrupted", "timeout", "error", "cancelled", "canceled"]);
+var subagentRunning = (status) => !SUBAGENT_DONE.has(status ?? "");
+var LINGER_MS = { done: 4e3, failed: 12e3 };
+function lingering(rows, seen, now) {
+  for (const id of [...seen.keys()]) {
+    if (!rows.some((row) => row.id === id)) {
+      seen.delete(id);
+    }
+  }
+  let next = null;
+  const shown = rows.filter((row) => {
+    if (row.state === "running") {
+      seen.delete(row.id);
+      return true;
+    }
+    if (!seen.has(row.id)) {
+      seen.set(row.id, now);
+    }
+    const until = seen.get(row.id) + LINGER_MS[row.state];
+    if (until <= now) {
+      return false;
+    }
+    next = next === null ? until : Math.min(next, until);
+    return true;
+  });
+  return { shown, next };
+}
+
+// src/rail/index.tsx
 import { Fragment, jsx as jsx5, jsxs as jsxs5 } from "react/jsx-runtime";
+var RAIL_ID = `${PLUGIN_ID}:rail`;
+var COMPRESS_FROM = 50;
 var $todos = atom2({});
 var todoProvider = {
+  // 宿主在 effect 里调用 resolve（composer/hooks/use-micro-actions.ts），可以直接写入
   resolve(context) {
     if ($todos.get()[context.sessionId] !== context.todos) {
-      queueMicrotask(() => $todos.set({ ...$todos.get(), [context.sessionId]: context.todos }));
+      $todos.set({ ...$todos.get(), [context.sessionId]: context.todos });
     }
     return [];
   }
 };
-function useLive(load, deps, events = [], debounceMs = 600) {
-  const [data, setData] = useState5(null);
-  const [tick, setTick] = useState5(0);
-  useEffect5(() => {
-    let live = true;
-    load().then((value) => live && setData(value)).catch(() => live && setData(null));
-    return () => {
-      live = false;
-    };
-  }, [...deps, tick]);
-  useEffect5(() => {
-    if (events.length === 0) {
-      return;
+var $info = atom2({});
+var $owner = host3.state.focusedSessionOwner ?? atom2(null);
+var activeGateway = () => ({ connectionId: host3.state.connectionId.get(), profile: host3.state.profile.get() });
+var resolveRoute = routeResolver(() => host3.profileRoutes());
+async function rpc(owner, method, params, foreground = false) {
+  const canRoute = typeof host3.requestProfile === "function" && typeof host3.profileRoutes === "function";
+  if (!canRoute || isActiveOwner(owner, activeGateway())) {
+    return host3.request(method, params);
+  }
+  const found = await resolveRoute(owner);
+  if (found === "active") {
+    return host3.request(method, params);
+  }
+  if (!found) {
+    throw new Error(`claude-ui: no gateway route for ${ownerKey(owner)}`);
+  }
+  return foreground ? host3.requestProfile(found, method, params, void 0, { spawnPriority: "foreground" }) : host3.requestProfile(found, method, params);
+}
+function useRpc(method, params, options = {}) {
+  const owner = useValue3($owner);
+  return useQuery({
+    queryKey: ["claude-ui", method, params, ownerKey(owner)],
+    queryFn: () => rpc(owner, method, params ?? {}),
+    enabled: params !== null,
+    staleTime: 0,
+    // 宿主 QueryClient 默认 60s（lib/query-client.ts）
+    retry: false,
+    ...options
+  });
+}
+function bindRailEvents() {
+  const refetch = (method, sessionId) => {
+    if (sessionId) {
+      void queryClient.invalidateQueries({ queryKey: ["claude-ui", method, { session_id: sessionId }] });
     }
-    let timer;
-    const offs = events.map(
-      (type) => host3.onEvent(type, () => {
-        clearTimeout(timer);
-        timer = setTimeout(() => setTick((n) => n + 1), debounceMs);
-      })
-    );
-    return () => {
-      clearTimeout(timer);
-      offs.forEach((off) => typeof off === "function" && off());
-    };
-  }, deps);
-  return [data, () => setTick((n) => n + 1)];
+  };
+  const offs = [
+    host3.onEvent("session.info", (event) => {
+      const sessionId = event?.session_id;
+      const payload = event?.payload ?? {};
+      if (!sessionId) {
+        return;
+      }
+      const next = { ...$info.get()[sessionId] };
+      for (const key of ["cwd", "branch", "project"]) {
+        if (key in payload) {
+          next[key] = payload[key];
+        }
+      }
+      $info.set({ ...$info.get(), [sessionId]: next });
+      if (sessionId === host3.state.focusedSessionId.get()) {
+        void queryClient.invalidateQueries({ queryKey: ["claude-ui", "mcp.servers.status"] });
+      }
+    }),
+    // payload 就是 { control }，和 session.control.read 的结果同形，直接写缓存
+    host3.onEvent("session.control.update", (event) => {
+      if (event?.session_id) {
+        queryClient.setQueriesData(
+          { queryKey: ["claude-ui", "session.control.read", { session_id: event.session_id }] },
+          { control: event.payload?.control ?? null }
+        );
+      }
+    }),
+    host3.onEvent("status.update", (event) => {
+      const kind = event?.payload?.kind;
+      if (kind === "process") {
+        refetch("process.list", event.session_id);
+      }
+      if (kind === "compacted" || kind === "ready") {
+        refetch("session.context_breakdown", event.session_id);
+      }
+    }),
+    // 只有 terminal / process 工具会起停后台进程（gateway-event/tools.ts）
+    host3.onEvent("tool.complete", (event) => {
+      if (event?.payload?.name === "terminal" || event?.payload?.name === "process") {
+        refetch("process.list", event.session_id);
+      }
+    }),
+    ...["subagent.spawn_requested", "subagent.start", "subagent.complete"].map(
+      (type) => host3.onEvent(type, (event) => refetch("subagent.list", event?.session_id))
+    ),
+    host3.onEvent("projects.changed", () => void queryClient.invalidateQueries({ queryKey: ["claude-ui", "projects.for_cwd"] }))
+  ];
+  return () => offs.forEach((off) => typeof off === "function" && off());
 }
 var basename = (path) => path.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || path;
+var firstLine = (text) => text.split("\n")[0].trim();
 function Card({ id, title, action, children }) {
   const storage = pluginContext()?.storage;
   const [folded, setFolded] = useState5(() => Boolean(storage?.get(`fold.${id}`, false)));
@@ -1348,7 +1485,8 @@ function Card({ id, title, action, children }) {
     /* @__PURE__ */ jsxs5("header", { className: "cx-card-head", children: [
       /* @__PURE__ */ jsxs5("button", { type: "button", className: "cx-card-title", "aria-expanded": !folded, onClick: toggle, children: [
         /* @__PURE__ */ jsx5("span", { className: "dither cx-card-dither", "aria-hidden": "true" }),
-        title
+        /* @__PURE__ */ jsx5("span", { className: "cx-ellipsis", children: title }),
+        /* @__PURE__ */ jsx5("span", { className: "cx-caret", "aria-hidden": "true", children: /* @__PURE__ */ jsx5(DisclosureCaret, { open: !folded }) })
       ] }),
       action
     ] }),
@@ -1361,35 +1499,45 @@ function Row({ label, children, title }) {
     children !== void 0 && /* @__PURE__ */ jsx5("span", { className: "cx-row-value", children })
   ] });
 }
+var Empty = ({ children }) => /* @__PURE__ */ jsxs5("p", { className: "cx-empty", children: [
+  /* @__PURE__ */ jsx5("span", { className: "dither", "aria-hidden": "true" }),
+  children
+] });
+var IconAction = ({ label, icon, onClick, disabled }) => /* @__PURE__ */ jsx5(Tip, { label, children: /* @__PURE__ */ jsx5(Button, { type: "button", variant: "ghost", size: "icon-xs", "aria-label": label, disabled, onClick, children: /* @__PURE__ */ jsx5(Codicon, { name: icon, size: "0.8125rem" }) }) });
+var Spinner = ({ label }) => /* @__PURE__ */ jsx5(GlyphSpinner, { ariaLabel: label, className: "cx-spin" });
+var isDetachedSha = (branch) => /^[0-9a-f]{7,40}$/.test(branch);
 function EnvironmentCard({ sessionId }) {
+  const { t } = useI18n3();
   const pt = usePluginI18n3(PLUGIN_ID);
+  const owner = useValue3($owner);
+  const info = useValue3($info)[sessionId ?? ""];
+  const primaryId = useValue3(host3.state.activeSessionId);
   const primaryCwd = useValue3(host3.state.cwd);
-  const profile = useValue3(host3.state.profile);
-  const connectionId = useValue3(host3.state.connectionId);
-  const [info, setInfo] = useState5({});
-  useEffect5(() => {
-    setInfo({});
-    const off = host3.onEvent("session.info", (event) => {
-      if (event?.session_id && event.session_id !== sessionId) {
-        return;
-      }
-      const p = event?.payload ?? {};
-      setInfo((prev) => ({ cwd: p.cwd ?? prev.cwd, branch: p.branch ?? prev.branch }));
-    });
-    return () => typeof off === "function" && off();
-  }, [sessionId]);
-  const folder = info.cwd || primaryCwd || "";
-  const [project] = useLive(() => folder ? host3.request("projects.for_cwd", { cwd: folder }) : Promise.resolve(null), [folder]);
-  const [connections] = useLive(() => host3.connections().catch(() => []), []);
-  const connection = connections?.find((c) => c.id === connectionId) ?? connections?.find((c) => c.primary);
-  const branch = info.branch || project?.branch;
+  const activeConnectionId = useValue3(host3.state.connectionId);
+  const sessionProfile = useValue3(host3.state.focusedSessionProfile);
+  const fallbackCwd = !info && sessionId === primaryId ? primaryCwd : "";
+  const lookup = useRpc("projects.for_cwd", fallbackCwd ? { cwd: fallbackCwd } : null);
+  const folder = info?.cwd || fallbackCwd || "";
+  const branch = info ? info.branch : lookup.data?.branch;
+  const projectName = (info ? info.project : lookup.data?.project)?.name;
+  const connectionId = owner?.connectionId ?? activeConnectionId ?? "";
+  const connections = useQuery({
+    queryKey: ["claude-ui", "connections", connectionId],
+    queryFn: () => host3.connections(),
+    staleTime: 0,
+    retry: false
+  });
+  const list = connections.data ?? [];
+  const connection = list.find((c) => c.id === connectionId) ?? list.find((c) => c.primary);
+  const profile = owner?.profile ?? sessionProfile;
+  const coding = t.statusStack.coding;
   return /* @__PURE__ */ jsxs5(Card, { id: "environment", title: pt("rail.environment"), children: [
-    /* @__PURE__ */ jsx5(Row, { label: pt("rail.folder"), title: folder || void 0, children: folder ? /* @__PURE__ */ jsx5("span", { className: "cx-strong", children: basename(folder) }) : /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: pt("rail.noFolder") }) }),
-    branch && /* @__PURE__ */ jsx5(Row, { label: pt("rail.branch"), children: /* @__PURE__ */ jsx5("span", { className: "cx-mono", children: branch }) }),
-    project?.project?.name && /* @__PURE__ */ jsx5(Row, { label: pt("rail.project"), children: project.project.name }),
-    /* @__PURE__ */ jsx5(Row, { label: pt("rail.gateway"), children: /* @__PURE__ */ jsxs5("span", { className: "cx-inline", children: [
+    /* @__PURE__ */ jsx5(Row, { label: t.shell.statusbar.toggleWorkspace, title: folder || void 0, children: folder ? /* @__PURE__ */ jsx5("span", { className: "cx-strong", children: basename(folder) }) : /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: t.rightSidebar.noFolderSelected }) }),
+    branch && /* @__PURE__ */ jsx5(Row, { label: coding.scopeBranch, children: /* @__PURE__ */ jsx5("span", { className: "cx-mono", children: isDetachedSha(branch) ? `${coding.detached} \xB7 ${branch}` : branch }) }),
+    projectName && /* @__PURE__ */ jsx5(Row, { label: t.sidebar.filter.project, children: projectName }),
+    /* @__PURE__ */ jsx5(Row, { label: t.shell.statusbar.gateway, children: /* @__PURE__ */ jsxs5("span", { className: "cx-inline", children: [
       connection && /* @__PURE__ */ jsx5(ConnectionGlyph, { connection, className: "cx-glyph" }),
-      /* @__PURE__ */ jsx5("span", { children: connection?.label ?? "local" }),
+      /* @__PURE__ */ jsx5("span", { children: connection?.label ?? t.settings.connections.kindLocal }),
       profile && /* @__PURE__ */ jsxs5("span", { className: "cx-muted", children: [
         "\xB7 ",
         profile
@@ -1397,203 +1545,211 @@ function EnvironmentCard({ sessionId }) {
     ] }) })
   ] });
 }
-var TODO_GLYPH = { completed: "\u25CF", in_progress: "\u25D0", cancelled: "\u2298" };
+function goalLine(goal, s) {
+  const state = goal.wait_barrier ? "waiting" : goal.status === "paused" ? "paused" : goal.status === "done" ? "done" : "active";
+  const labels = { waiting: s.goalWaiting, paused: s.goalPaused, done: s.goalDone, active: s.goalActive };
+  const label = goal.last_verdict === "blocked" ? s.goalBlocked : labels[state];
+  const turns = goal.turns_used ?? 0;
+  const count = state === "done" ? s.control.goalDoneTurns(turns) : goal.max_turns > 0 ? s.control.goalActiveTurns(turns, goal.max_turns) : turns > 0 ? s.control.goalTurn(turns) : "";
+  return count ? `${label} \xB7 ${count}` : label;
+}
+function TodoIcon({ status, label }) {
+  if (status === "in_progress") {
+    return /* @__PURE__ */ jsx5(Spinner, { label });
+  }
+  if (status === "completed" || status === "cancelled") {
+    return /* @__PURE__ */ jsx5(Codicon, { name: status === "completed" ? "pass-filled" : "circle-slash", size: "0.8rem" });
+  }
+  return /* @__PURE__ */ jsx5("span", { className: "cx-pending" });
+}
 function GoalCard({ sessionId }) {
+  const { t } = useI18n3();
   const pt = usePluginI18n3(PLUGIN_ID);
-  const todosBySession = useValue3($todos);
-  const [control] = useLive(
-    () => sessionId ? host3.request("session.control.read", { session_id: sessionId }).then((r) => r?.control ?? null) : Promise.resolve(null),
-    [sessionId],
-    ["session.control.update"]
-  );
-  const goal = control?.goal;
-  const todos = sessionId && todosBySession[sessionId] || [];
-  const done = todos.filter((t) => t?.status === "completed").length;
+  const control = useRpc("session.control.read", { session_id: sessionId });
+  const todos = useValue3($todos)[sessionId] ?? [];
+  const goal = control.data?.control?.goal;
+  const done = todos.filter((todo) => todo?.status === "completed").length;
+  const s = t.statusStack;
   return /* @__PURE__ */ jsxs5(Card, { id: "goal", title: pt("rail.goal"), children: [
-    !goal && todos.length === 0 && /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: pt("rail.noGoal") }),
+    control.isFetched && !goal && todos.length === 0 && /* @__PURE__ */ jsx5(Empty, { children: pt("rail.noGoal") }),
     goal && /* @__PURE__ */ jsxs5("div", { className: "cx-goal", children: [
       /* @__PURE__ */ jsx5("span", { className: "cx-strong", children: goal.title }),
-      /* @__PURE__ */ jsxs5("span", { className: "cx-muted", children: [
-        goal.status,
-        goal.max_turns ? ` \xB7 ${pt("rail.turns", goal.turns_used ?? 0, goal.max_turns)}` : ""
-      ] }),
-      (goal.subgoals ?? []).map((s, i) => /* @__PURE__ */ jsx5("span", { className: "cx-subgoal", children: s }, i))
+      /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: goalLine(goal, s) }),
+      (goal.subgoals ?? []).map((subgoal, i) => /* @__PURE__ */ jsx5("span", { className: "cx-subgoal", children: subgoal }, i))
     ] }),
     todos.length > 0 && /* @__PURE__ */ jsxs5("div", { className: "cx-todos", children: [
-      /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: pt("rail.todos", done, todos.length) }),
+      /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: s.todos(done, todos.length) }),
       todos.map((todo, i) => /* @__PURE__ */ jsxs5("span", { className: "cx-todo", "data-status": todo?.status, children: [
-        /* @__PURE__ */ jsx5("span", { className: "cx-todo-glyph", "aria-hidden": "true", children: TODO_GLYPH[todo?.status] ?? "\u25CB" }),
+        /* @__PURE__ */ jsx5("span", { className: "cx-lead", "aria-hidden": todo?.status !== "in_progress" || void 0, children: /* @__PURE__ */ jsx5(TodoIcon, { status: todo?.status, label: s.running }) }),
         /* @__PURE__ */ jsx5("span", { children: todo?.content ?? "" })
       ] }, todo?.id ?? i))
     ] })
   ] });
 }
 function ContextCard({ sessionId }) {
-  const pt = usePluginI18n3(PLUGIN_ID);
   const { t } = useI18n3();
-  const usage = useValue3(host3.state.focusedUsage);
+  const pt = usePluginI18n3(PLUGIN_ID);
   const busy = useValue3(host3.state.busy);
-  const [breakdown] = useLive(
-    () => sessionId ? host3.request("session.context_breakdown", { session_id: sessionId }) : Promise.resolve(null),
-    [sessionId],
-    ["message.complete"],
-    1500
-  );
-  const used = usage?.context_used ?? breakdown?.context_used ?? 0;
-  const max = usage?.context_max ?? breakdown?.context_max ?? 0;
-  const percent = max > 0 ? Math.round(used / max * 100) : null;
-  const names = t?.shell?.statusbar?.contextUsagePanel?.categories ?? {};
-  const categories = (breakdown?.categories ?? []).filter((c) => c?.tokens > 0);
-  return /* @__PURE__ */ jsxs5(
+  const usage = useValue3(host3.state.focusedUsage);
+  const storedId = useValue3(host3.state.focusedStoredSessionId);
+  const breakdown = useRpc("session.context_breakdown", busy ? null : { session_id: sessionId }, { gcTime: 0 });
+  const reading = contextReading(usage, breakdown.data);
+  const panel = t.shell.statusbar.contextUsagePanel;
+  const names = panel?.categories ?? {};
+  const parts = segments((breakdown.data?.categories ?? []).filter((c) => c?.tokens > 0), reading?.used ?? 0);
+  const est = reading?.estimated ? "~" : "";
+  const compress = () => {
+    if (!host3.composer.submit(storedId ?? sessionId, "/compress")) {
+      host3.notify({ kind: "info", message: pt("rail.compressUnavailable") });
+    }
+  };
+  return /* @__PURE__ */ jsx5(
     Card,
     {
       id: "context",
-      title: pt("rail.context"),
-      action: sessionId && percent !== null && percent >= 50 ? /* @__PURE__ */ jsx5("button", { type: "button", className: "cx-mini", disabled: busy, onClick: () => host3.composer.submit(sessionId, "/compress"), children: pt("rail.compress") }) : void 0,
-      children: [
-        /* @__PURE__ */ jsx5("div", { className: "cx-meter", role: "img", "aria-label": percent === null ? "" : `${percent}%`, children: categories.length > 0 && max > 0 ? categories.map((c) => /* @__PURE__ */ jsx5("span", { style: { width: `${c.tokens / max * 100}%`, background: c.color } }, c.id)) : percent !== null && /* @__PURE__ */ jsx5("span", { style: { width: `${percent}%`, background: "var(--ui-text-tertiary)" } }) }),
-        /* @__PURE__ */ jsx5(Row, { label: max > 0 ? `${compactNumber(used)} / ${compactNumber(max)}` : "\u2014", children: percent !== null ? `${percent}%` : "" }),
-        categories.length > 0 && /* @__PURE__ */ jsx5("div", { className: "cx-legend", children: categories.slice(0, 6).map((c) => /* @__PURE__ */ jsxs5("span", { children: [
-          /* @__PURE__ */ jsx5("i", { style: { background: c.color } }),
-          names[c.id] ?? c.label
-        ] }, c.id)) })
-      ]
+      title: t.shell.statusbar.contextUsage,
+      action: reading && reading.percent >= COMPRESS_FROM ? /* @__PURE__ */ jsx5(IconAction, { label: pt("rail.compress"), icon: "layers", disabled: busy, onClick: compress }) : void 0,
+      children: reading ? /* @__PURE__ */ jsxs5(Fragment, { children: [
+        /* @__PURE__ */ jsx5("div", { className: parts.length > 0 ? "cx-meter" : "cx-meter dither", role: "img", "aria-label": `${est}${panel.percentFull(reading.percent)}`, children: parts.map((part) => /* @__PURE__ */ jsx5("span", { style: { width: `${part.width}%`, background: part.color } }, part.id)) }),
+        /* @__PURE__ */ jsx5(Row, { label: panel.tokenSummary(`${est}${compactNumber(reading.used)}`, compactNumber(reading.max)), children: `${est}${panel.percentFull(reading.percent)}` }),
+        parts.length > 0 && /* @__PURE__ */ jsx5("div", { className: "cx-legend", children: parts.slice(0, 6).map((part) => /* @__PURE__ */ jsxs5("span", { children: [
+          /* @__PURE__ */ jsx5("i", { style: { background: part.color } }),
+          names[part.id] ?? part.label
+        ] }, part.id)) })
+      ] }) : breakdown.isFetched && /* @__PURE__ */ jsx5(Empty, { children: panel.empty })
     }
   );
 }
-var TONE = { connected: "good", connecting: "busy", lazy: "muted", configured: "muted", disabled: "off", failed: "bad" };
+var TONE = { connected: "good", lazy: "muted", configured: "muted", disabled: "off", failed: "bad" };
 function ConnectorsCard() {
+  const { t } = useI18n3();
   const pt = usePluginI18n3(PLUGIN_ID);
-  const [status, reload] = useLive(() => host3.request("mcp.servers.status", {}), [], ["session.info"], 2e3);
-  const servers = status?.servers ?? [];
-  return /* @__PURE__ */ jsxs5(
-    Card,
+  const owner = useValue3($owner);
+  const status = useRpc("mcp.servers.status", {});
+  const servers = status.data?.servers ?? [];
+  const signIn = (serverName) => host3.completeMcpOAuth({ serverName, ...isActiveOwner(owner, activeGateway()) ? {} : { profile: owner } }).catch(() => void 0).finally(() => status.refetch());
+  return /* @__PURE__ */ jsxs5(Card, { id: "connectors", title: pt("rail.connectors"), action: /* @__PURE__ */ jsx5(IconAction, { label: t.common.refresh, icon: "refresh", onClick: () => status.refetch() }), children: [
+    status.isSuccess && servers.length === 0 && /* @__PURE__ */ jsx5(Empty, { children: pt("rail.noConnectors") }),
+    servers.map((server) => /* @__PURE__ */ jsxs5("div", { className: "cx-item", children: [
+      /* @__PURE__ */ jsx5("span", { className: "cx-lead", children: server.status === "connecting" ? /* @__PURE__ */ jsx5(Spinner, { label: t.settings?.mcp?.statusConnecting }) : /* @__PURE__ */ jsx5("span", { className: "cx-dot", "data-tone": server.needs_auth ? "warn" : TONE[server.status] ?? "muted" }) }),
+      /* @__PURE__ */ jsx5("span", { className: "cx-strong cx-ellipsis", children: server.name }),
+      server.needs_auth ? /* @__PURE__ */ jsx5(Button, { type: "button", variant: "outline", size: "xs", className: "cx-accent", onClick: () => signIn(server.name), children: t.notifications.mcp.signIn }) : /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: server.disabled ? "\u2014" : t.agents.toolsCount(server.tools ?? 0) })
+    ] }, server.name))
+  ] });
+}
+function BackgroundCard({ sessionId }) {
+  const { t } = useI18n3();
+  const pt = usePluginI18n3(PLUGIN_ID);
+  const owner = useValue3($owner);
+  const processes = useRpc(
+    "process.list",
+    { session_id: sessionId },
     {
-      id: "connectors",
-      title: pt("rail.connectors"),
-      action: /* @__PURE__ */ jsx5("button", { type: "button", className: "cx-icon", "aria-label": pt("rail.refresh"), onClick: reload, children: /* @__PURE__ */ jsx5("i", { className: "codicon codicon-refresh" }) }),
-      children: [
-        servers.length === 0 && /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: pt("rail.noConnectors") }),
-        servers.map((server) => /* @__PURE__ */ jsxs5("div", { className: "cx-row", children: [
-          /* @__PURE__ */ jsxs5("span", { className: "cx-inline", children: [
-            /* @__PURE__ */ jsx5("span", { className: "cx-dot", "data-tone": server.needs_auth ? "warn" : TONE[server.status] ?? "muted" }),
-            /* @__PURE__ */ jsx5("span", { className: "cx-strong", children: server.name })
-          ] }),
-          server.needs_auth ? /* @__PURE__ */ jsx5("button", { type: "button", className: "cx-mini cx-accent", onClick: () => host3.completeMcpOAuth({ serverName: server.name }).finally(reload), children: pt("rail.signIn") }) : /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: server.disabled ? "\u2014" : pt("rail.tools", server.tools ?? 0) })
-        ] }, server.name))
-      ]
+      refetchInterval: (query) => (query.state.data?.processes ?? []).some((p) => processState(p) === "running") ? 5e3 : false
     }
   );
-}
-var isRunning = (status) => !status || /run|start|active|pending/i.test(status);
-function BackgroundCard({ sessionId }) {
-  const pt = usePluginI18n3(PLUGIN_ID);
-  const [processes, reloadProcesses] = useLive(
-    () => sessionId ? host3.request("process.list", { session_id: sessionId }).then((r) => r?.processes ?? []) : Promise.resolve([]),
-    [sessionId],
-    ["status.update", "tool.complete"],
-    800
-  );
-  const [subagents, reloadSubagents] = useLive(
-    () => sessionId ? host3.request("subagent.list", { session_id: sessionId }).then((r) => r?.subagents ?? []) : Promise.resolve([]),
-    [sessionId],
-    ["subagent.start", "subagent.complete", "subagent.progress"],
-    800
-  );
-  const procs = processes ?? [];
-  const subs = subagents ?? [];
-  const stop = (method, params, reload) => host3.request(method, { session_id: sessionId, ...params }).catch(() => void 0).finally(reload);
+  const subagents = useRpc("subagent.list", { session_id: sessionId });
+  const [seen] = useState5(() => /* @__PURE__ */ new Map());
+  const [tick, rerender] = useReducer((n) => n + 1, 0);
+  const rows = (processes.data?.processes ?? []).map((p) => ({
+    id: String(p.session_id),
+    state: processState(p),
+    command: String(p.command ?? p.session_id ?? ""),
+    exit: p.exit_code
+  }));
+  const { shown, next } = lingering(rows, seen, Date.now());
+  const live = (subagents.data?.subagents ?? []).filter((sub) => subagentRunning(sub.status));
+  const s = t.statusStack;
+  useEffect5(() => {
+    if (next === null) {
+      return;
+    }
+    const timer = setTimeout(rerender, Math.max(0, next - Date.now()));
+    return () => clearTimeout(timer);
+  }, [next, tick]);
+  const stopProcess = (id) => rpc(owner, "process.kill", { process_id: id, session_id: sessionId }, true).catch(() => void 0).finally(() => processes.refetch());
+  const stopSubagent = (id) => rpc(owner, "subagent.interrupt", { session_id: sessionId, subagent_id: id }, true).then((result) => result?.found ? host3.notify({ kind: "info", message: t.agents.stopRequested }) : Promise.reject()).catch(() => host3.notify({ kind: "error", message: t.agents.requestRejected })).finally(() => subagents.refetch());
   return /* @__PURE__ */ jsxs5(Card, { id: "background", title: pt("rail.background"), children: [
-    procs.length === 0 && subs.length === 0 && /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: pt("rail.noBackground") }),
-    procs.map((p) => {
-      const running = isRunning(p.status) && p.exit_code == null;
-      return /* @__PURE__ */ jsxs5("div", { className: "cx-row", title: p.command, children: [
-        /* @__PURE__ */ jsxs5("span", { className: "cx-inline cx-ellipsis", children: [
-          /* @__PURE__ */ jsx5("span", { className: "cx-dot", "data-tone": running ? "busy" : p.exit_code ? "bad" : "muted" }),
-          /* @__PURE__ */ jsx5("span", { className: "cx-mono cx-ellipsis", children: p.command ?? p.session_id })
-        ] }),
-        running ? /* @__PURE__ */ jsx5("button", { type: "button", className: "cx-icon", "aria-label": pt("rail.stop"), onClick: () => stop("process.kill", { process_id: p.session_id }, reloadProcesses), children: /* @__PURE__ */ jsx5("i", { className: "codicon codicon-debug-stop" }) }) : /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: p.exit_code != null ? `exit ${p.exit_code}` : pt("rail.finished") })
-      ] }, p.session_id);
-    }),
-    subs.map((s) => {
-      const running = isRunning(s.status);
-      return /* @__PURE__ */ jsxs5("div", { className: "cx-row", title: s.goal ?? void 0, children: [
-        /* @__PURE__ */ jsxs5("span", { className: "cx-inline cx-ellipsis", children: [
-          /* @__PURE__ */ jsx5("span", { className: "cx-dot", "data-tone": running ? "busy" : "muted" }),
-          /* @__PURE__ */ jsx5("span", { className: "cx-ellipsis", children: s.goal || pt("rail.subagent") })
-        ] }),
-        running ? /* @__PURE__ */ jsx5("button", { type: "button", className: "cx-icon", "aria-label": pt("rail.stop"), onClick: () => stop("subagent.interrupt", { subagent_id: s.subagent_id }, reloadSubagents), children: /* @__PURE__ */ jsx5("i", { className: "codicon codicon-debug-stop" }) }) : /* @__PURE__ */ jsx5("span", { className: "cx-muted", children: s.status ?? "" })
-      ] }, s.subagent_id);
-    })
+    processes.isFetched && subagents.isFetched && shown.length === 0 && live.length === 0 && /* @__PURE__ */ jsx5(Empty, { children: pt("rail.noBackground") }),
+    shown.map((row) => /* @__PURE__ */ jsxs5("div", { className: "cx-item", title: row.command, children: [
+      /* @__PURE__ */ jsx5("span", { className: "cx-lead", children: row.state === "running" ? /* @__PURE__ */ jsx5(Spinner, { label: s.running }) : /* @__PURE__ */ jsx5("span", { className: "cx-dot", "data-tone": row.state === "failed" ? "bad" : "good" }) }),
+      /* @__PURE__ */ jsx5("span", { className: "cx-mono cx-ellipsis", children: firstLine(row.command) }),
+      row.state === "failed" && /* @__PURE__ */ jsx5("span", { className: "cx-exit", children: s.exit(row.exit) }),
+      row.state === "running" && /* @__PURE__ */ jsx5(IconAction, { label: s.stop, icon: "debug-stop", onClick: () => stopProcess(row.id) })
+    ] }, row.id)),
+    live.map((sub) => /* @__PURE__ */ jsxs5("div", { className: "cx-item", title: sub.goal ?? void 0, children: [
+      /* @__PURE__ */ jsx5("span", { className: "cx-lead", children: /* @__PURE__ */ jsx5(Spinner, { label: s.running }) }),
+      /* @__PURE__ */ jsx5("span", { className: "cx-ellipsis", children: sub.goal || sub.subagent_id }),
+      /* @__PURE__ */ jsx5(IconAction, { label: s.stop, icon: "debug-stop", onClick: () => stopSubagent(sub.subagent_id) })
+    ] }, sub.subagent_id))
   ] });
 }
 function Rail() {
   const pt = usePluginI18n3(PLUGIN_ID);
   const sessionId = useValue3(host3.state.focusedSessionId);
-  return /* @__PURE__ */ jsxs5("div", { className: "cx-rail", "data-cxui-rail": "", children: [
+  return /* @__PURE__ */ jsxs5("div", { className: "cx-rail", children: [
     /* @__PURE__ */ jsx5(EnvironmentCard, { sessionId }),
     sessionId ? /* @__PURE__ */ jsxs5(Fragment, { children: [
       /* @__PURE__ */ jsx5(GoalCard, { sessionId }),
       /* @__PURE__ */ jsx5(ContextCard, { sessionId })
-    ] }) : /* @__PURE__ */ jsx5("p", { className: "cx-muted cx-rail-empty", children: pt("rail.noSession") }),
+    ] }) : /* @__PURE__ */ jsx5(Empty, { children: pt("rail.noSession") }),
     /* @__PURE__ */ jsx5(ConnectorsCard, {}),
-    sessionId && /* @__PURE__ */ jsx5(BackgroundCard, { sessionId })
+    sessionId && /* @__PURE__ */ jsx5(BackgroundCard, { sessionId }, sessionId)
   ] });
 }
-var NARROW_PX = 1e3;
 function RailManager() {
   const active = useThemeActive();
+  const { locale, t } = useI18n3();
   const pt = usePluginI18n3(PLUGIN_ID);
-  const viewport = useValue3(host3.state.viewport);
   const ctx2 = pluginContext();
-  const [wanted, setWanted] = useState5(() => Boolean(ctx2?.storage.get("rail", true)));
-  const wide = !viewport?.narrow && (viewport?.width ?? NARROW_PX) >= NARROW_PX;
-  const shown = active && wanted && wide;
-  useEffect5(() => {
-    if (!shown || !ctx2) {
-      return;
-    }
-    return ctx2.register({
-      id: "rail",
-      area: PANES_AREA,
-      title: pt("rail.title"),
-      data: {
-        placement: "main",
-        dock: { pane: "workspace", pos: "right", enforce: true },
-        width: "260px",
-        minWidth: "232px",
-        maxWidth: "360px",
-        headerVeto: true,
-        uncloseable: true
-      },
-      render: () => /* @__PURE__ */ jsx5(Rail, {})
-    });
-  }, [shown]);
   useEffect5(() => {
     if (!active || !ctx2) {
       return;
     }
+    const dispose = ctx2.register({
+      id: "rail",
+      area: PANES_AREA,
+      title: pt("rail.title"),
+      data: {
+        placement: "right",
+        collapsible: true,
+        hideOnly: true,
+        dock: { pane: "files", pos: "center", enforce: true },
+        // 窄窗口下 ⌘J 和标题栏按钮派发的是 file-browser；没有文件夹时 files 被隐藏，由这里接住
+        revealAliases: ["file-browser"],
+        // 同 files（store/layout.ts）。同区面板的宽度取最大值，三项都要写：files 被隐藏时这个区只剩会话详情
+        width: "237px",
+        minWidth: "10rem",
+        maxWidth: "20rem"
+      },
+      render: () => /* @__PURE__ */ jsx5(Rail, {})
+    });
+    if (typeof host3.undismissPane === "function") {
+      host3.undismissPane(RAIL_ID);
+    }
+    return dispose;
+  }, [active, locale]);
+  useEffect5(() => {
+    if (!active || !ctx2 || typeof host3.revealPane !== "function") {
+      return;
+    }
     return ctx2.register({
-      id: "rail-toggle",
+      id: "rail-reveal",
       area: "titleBar.tools.right",
       data: {
         id: "claude-ui-rail",
-        label: pt("rail.toggle"),
-        icon: /* @__PURE__ */ jsx5("i", { className: "codicon codicon-layout-sidebar-right" }),
-        active: shown,
-        disabled: !wide,
-        onSelect: () => {
-          ctx2.storage.set("rail", !wanted);
-          setWanted(!wanted);
-        }
+        label: t.zones.showStripTab(pt("rail.title")),
+        icon: /* @__PURE__ */ jsx5(Codicon, { className: "leading-none", name: "info", size: "13.9px" }),
+        onSelect: () => host3.revealPane(RAIL_ID)
       }
     });
-  }, [active, wanted, wide, shown, pt]);
+  }, [active, locale]);
+  useEffect5(() => active ? bindRailEvents() : void 0, [active]);
   return null;
 }
 
 // src/styles/components.css
-var components_default = "/* \u2500\u2500 Claude UI \xB7 \u81EA\u5EFA\u7EC4\u4EF6\uFF08\u989D\u5EA6\u73AF\u3001\u63A8\u7406\u5F3A\u5EA6\u5165\u53E3\u3001\u4F1A\u8BDD\u680F\uFF09\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\r\n\r\n/* \u9009\u62E9\u5668\u884C\u91CC\u7684\u5C0F\u6309\u94AE\uFF1A\u4E0E Hermes \u7684\u6A21\u578B pill \u540C\u9AD8\uFF0Csecondary \u8272 */\r\n:root .cx-pill {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 4px;\r\n  height: var(--composer-control-size, 1.5rem);\r\n  min-width: var(--composer-control-size, 1.5rem);\r\n  padding: 0 6px;\r\n  border: 0;\r\n  border-radius: var(--cx-radius-control);\r\n  background: transparent;\r\n  color: var(--ui-text-secondary);\r\n  font: inherit;\r\n  font-size: var(--conversation-caption-font-size, 0.75rem);\r\n  white-space: nowrap;\r\n  cursor: pointer;\r\n  transition:\r\n    background-color var(--cx-dur-snap) ease-out,\r\n    color var(--cx-dur-snap) ease-out;\r\n}\r\n\r\n:root .cx-pill:hover,\r\n:root .cx-pill[data-state='open'] {\r\n  background: var(--chrome-action-hover);\r\n  color: var(--ui-text-primary);\r\n}\r\n\r\n:root .cx-pill[data-pro] {\r\n  color: var(--cx-pro);\r\n}\r\n\r\n:root .cx-usage-trigger {\r\n  padding: 0 4px;\r\n}\r\n\r\n/* \u63A8\u7406\u5F3A\u5EA6\uFF1A\u6A21\u578B\u4E0D\u652F\u6301\u63A8\u7406\u65F6\u539F\u751F pill \u4E0D\u6E32\u67D3\uFF0C\u6211\u4EEC\u4E5F\u8BA9\u4F4D\uFF1B\u6211\u4EEC\u5728\u65F6\u539F\u751F pill \u6536\u8D77\uFF08\u53EA\u5728\u4E3B\u4F1A\u8BDD\uFF09 */\r\n:root [data-slot='composer-root']:not(:has([data-testid='reasoning-pill'])) [data-cxui-effort] {\r\n  display: none;\r\n}\r\n\r\n:root [data-chat-surface][data-composer-target='main'] [data-slot='composer-root']:has([data-cxui-effort]) [data-testid='reasoning-pill'] {\r\n  display: none !important;\r\n}\r\n\r\n/* tile\uFF08\u5206\u5C4F\u4F1A\u8BDD\uFF09\u4FDD\u7559 Hermes \u539F\u751F\u63A7\u4EF6 */\r\n:root [data-chat-surface]:not([data-composer-target='main']) :is([data-cxui-effort], [data-cxui-quota]) {\r\n  display: none;\r\n}\r\n\r\n/* \u2500\u2500 \u4F1A\u8BDD\u680F \u2500\u2500 */\r\n:root .cx-rail {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 10px;\r\n  height: 100%;\r\n  overflow-y: auto;\r\n  padding: 10px 10px 14px;\r\n  color: var(--ui-text-secondary);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n  scrollbar-width: none;\r\n}\r\n\r\n:root .cx-rail-empty {\r\n  margin: 0;\r\n  padding: 0 4px;\r\n}\r\n\r\n:root .cx-card {\r\n  border-radius: var(--cx-radius-card);\r\n  background: var(--cx-surface);\r\n  box-shadow: var(--cx-edge);\r\n}\r\n\r\n:root .cx-card-head {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 6px;\r\n  min-height: 30px;\r\n  padding: 0 6px 0 10px;\r\n}\r\n\r\n/* \u5361\u7247\u6807\u9898\u6CBF\u7528 Hermes \u4FA7\u680F\u7684\u5927\u5199\u5206\u7EC4\u6807\u9898 + dither \u65B9\u70B9 */\r\n:root .cx-card-title {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 0;\r\n  border: 0;\r\n  background: none;\r\n  color: var(--theme-primary);\r\n  font: inherit;\r\n  font-size: 0.64rem;\r\n  font-weight: 500;\r\n  letter-spacing: 0.08em;\r\n  text-transform: uppercase;\r\n  cursor: pointer;\r\n}\r\n\r\n:root .cx-card-dither {\r\n  width: 7px;\r\n  height: 7px;\r\n  flex: none;\r\n  transition: transform var(--cx-dur-snap) var(--cx-ease-snap);\r\n}\r\n\r\n:root .cx-card[data-folded] .cx-card-dither {\r\n  transform: scale(0.7);\r\n  opacity: 0.6;\r\n}\r\n\r\n:root .cx-card-body {\r\n  display: grid;\r\n  gap: 4px;\r\n  padding: 0 10px 10px;\r\n  min-width: 0;\r\n}\r\n\r\n:root .cx-row {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n  min-height: 22px;\r\n  min-width: 0;\r\n}\r\n\r\n:root .cx-row-label {\r\n  color: var(--ui-text-tertiary);\r\n  white-space: nowrap;\r\n}\r\n\r\n:root .cx-row-value {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-align: right;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n:root .cx-strong {\r\n  color: var(--ui-text-primary);\r\n}\r\n\r\n:root .cx-muted {\r\n  color: var(--ui-text-tertiary);\r\n}\r\n\r\n:root .cx-mono {\r\n  font-family: var(--dt-font-mono);\r\n  font-size: 11px;\r\n}\r\n\r\n:root .cx-inline {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  min-width: 0;\r\n}\r\n\r\n:root .cx-ellipsis {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n:root .cx-glyph {\r\n  flex: none;\r\n  color: var(--ui-text-tertiary);\r\n}\r\n\r\n:root .cx-goal,\r\n:root .cx-todos {\r\n  display: grid;\r\n  gap: 3px;\r\n}\r\n\r\n:root .cx-subgoal {\r\n  padding-left: 10px;\r\n  border-left: 2px solid var(--cx-line-strong);\r\n}\r\n\r\n:root .cx-todo {\r\n  display: flex;\r\n  gap: 6px;\r\n  align-items: baseline;\r\n}\r\n\r\n:root .cx-todo-glyph {\r\n  width: 10px;\r\n  flex: none;\r\n  color: var(--ui-text-tertiary);\r\n  font-size: 9px;\r\n}\r\n\r\n:root .cx-todo[data-status='in_progress'] {\r\n  color: var(--ui-text-primary);\r\n}\r\n\r\n:root .cx-todo[data-status='in_progress'] .cx-todo-glyph {\r\n  color: var(--ui-accent);\r\n}\r\n\r\n:root .cx-todo[data-status='completed'] {\r\n  color: var(--ui-text-tertiary);\r\n  text-decoration: line-through;\r\n  text-decoration-color: var(--cx-line-strong);\r\n}\r\n\r\n/* \u4E0A\u4E0B\u6587\u5360\u7528\u6761\uFF1A\u5206\u6BB5\uFF0C\u989C\u8272\u6765\u81EA Hermes \u7684 --context-usage-* */\r\n:root .cx-meter {\r\n  display: flex;\r\n  height: 6px;\r\n  overflow: hidden;\r\n  border-radius: 3px;\r\n  background: color-mix(in srgb, var(--ui-base) 8%, transparent);\r\n}\r\n\r\n:root .cx-meter > span {\r\n  height: 100%;\r\n  transition: width var(--cx-dur-base) var(--cx-ease-out);\r\n}\r\n\r\n:root .cx-legend {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 2px 10px;\r\n  color: var(--ui-text-tertiary);\r\n  font-size: 11px;\r\n}\r\n\r\n:root .cx-legend i {\r\n  display: inline-block;\r\n  width: 6px;\r\n  height: 6px;\r\n  margin-right: 4px;\r\n  border-radius: 2px;\r\n  vertical-align: 1px;\r\n}\r\n\r\n/* \u72B6\u6001\u70B9\uFF1Acodex-ui \u7684 6px \u5706\u70B9 */\r\n:root .cx-dot {\r\n  width: 6px;\r\n  height: 6px;\r\n  flex: none;\r\n  border-radius: 50%;\r\n  background: var(--ui-text-tertiary);\r\n}\r\n\r\n:root .cx-dot[data-tone='good'] {\r\n  background: var(--ui-green);\r\n}\r\n\r\n:root .cx-dot[data-tone='warn'] {\r\n  background: var(--cx-warning-fill);\r\n}\r\n\r\n:root .cx-dot[data-tone='bad'] {\r\n  background: var(--ui-red);\r\n}\r\n\r\n:root .cx-dot[data-tone='off'] {\r\n  background: var(--cx-line-strong);\r\n}\r\n\r\n:root .cx-dot[data-tone='busy'] {\r\n  background: var(--ui-text-tertiary);\r\n  animation: cx-blink 1.2s ease-in-out infinite;\r\n}\r\n\r\n/* \u5361\u7247\u91CC\u7684\u5C0F\u6309\u94AE */\r\n:root :is(.cx-mini, .cx-icon) {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  height: 22px;\r\n  border: 0;\r\n  border-radius: var(--cx-radius-control);\r\n  background: transparent;\r\n  color: var(--ui-text-secondary);\r\n  font: inherit;\r\n  font-size: 11px;\r\n  cursor: pointer;\r\n  transition: background-color var(--cx-dur-snap) ease-out;\r\n}\r\n\r\n:root .cx-mini {\r\n  padding: 0 8px;\r\n  box-shadow: inset 0 0 0 1px var(--cx-line);\r\n}\r\n\r\n:root .cx-icon {\r\n  width: 22px;\r\n  color: var(--ui-text-tertiary);\r\n}\r\n\r\n:root :is(.cx-mini, .cx-icon):hover:not(:disabled) {\r\n  background: var(--cx-hover);\r\n  color: var(--ui-text-primary);\r\n}\r\n\r\n:root :is(.cx-mini, .cx-icon):disabled {\r\n  cursor: default;\r\n  opacity: 0.4;\r\n}\r\n\r\n:root .cx-mini.cx-accent {\r\n  color: var(--ui-accent);\r\n  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 40%, transparent);\r\n}\r\n\r\n@media (prefers-reduced-motion: reduce) {\r\n  :root .cx-dot[data-tone='busy'] {\r\n    animation: none;\r\n  }\r\n}\r\n";
+var components_default = "/* \u2500\u2500 Claude UI \xB7 \u81EA\u5EFA\u7EC4\u4EF6\uFF08\u989D\u5EA6\u73AF\u3001\u63A8\u7406\u5F3A\u5EA6\u5165\u53E3\u3001\u4F1A\u8BDD\u680F\uFF09\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\r\n\r\n/* \u9009\u62E9\u5668\u884C\u91CC\u7684\u5C0F\u6309\u94AE\uFF1A\u4E0E Hermes \u7684\u6A21\u578B pill \u540C\u9AD8\uFF0Csecondary \u8272 */\r\n:root .cx-pill {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 4px;\r\n  height: var(--composer-control-size, 1.5rem);\r\n  min-width: var(--composer-control-size, 1.5rem);\r\n  padding: 0 6px;\r\n  border: 0;\r\n  border-radius: var(--cx-radius-control);\r\n  background: transparent;\r\n  color: var(--ui-text-secondary);\r\n  font: inherit;\r\n  font-size: var(--conversation-caption-font-size, 0.75rem);\r\n  white-space: nowrap;\r\n  cursor: pointer;\r\n  transition:\r\n    background-color var(--cx-dur-snap) ease-out,\r\n    color var(--cx-dur-snap) ease-out;\r\n}\r\n\r\n:root .cx-pill:hover,\r\n:root .cx-pill[data-state='open'] {\r\n  background: var(--chrome-action-hover);\r\n  color: var(--ui-text-primary);\r\n}\r\n\r\n:root .cx-pill[data-pro] {\r\n  color: var(--cx-pro);\r\n}\r\n\r\n:root .cx-usage-trigger {\r\n  padding: 0 4px;\r\n}\r\n\r\n/* \u63A8\u7406\u5F3A\u5EA6\uFF1A\u6A21\u578B\u4E0D\u652F\u6301\u63A8\u7406\u65F6\u539F\u751F pill \u4E0D\u6E32\u67D3\uFF0C\u6211\u4EEC\u4E5F\u8BA9\u4F4D\uFF1B\u6211\u4EEC\u5728\u65F6\u539F\u751F pill \u6536\u8D77\uFF08\u53EA\u5728\u4E3B\u4F1A\u8BDD\uFF09 */\r\n:root [data-slot='composer-root']:not(:has([data-testid='reasoning-pill'])) [data-cxui-effort] {\r\n  display: none;\r\n}\r\n\r\n:root [data-chat-surface][data-composer-target='main'] [data-slot='composer-root']:has([data-cxui-effort]) [data-testid='reasoning-pill'] {\r\n  display: none !important;\r\n}\r\n\r\n/* tile\uFF08\u5206\u5C4F\u4F1A\u8BDD\uFF09\u4FDD\u7559 Hermes \u539F\u751F\u63A7\u4EF6 */\r\n:root [data-chat-surface]:not([data-composer-target='main']) :is([data-cxui-effort], [data-cxui-quota]) {\r\n  display: none;\r\n}\r\n\r\n/* \u2500\u2500 \u4F1A\u8BDD\u8BE6\u60C5\uFF08Hermes \u53F3\u4FA7\u680F\u91CC\u7684\u6807\u7B7E\uFF09\u2500\u2500 */\r\n/* \u5E95\u8272\u540C\u539F\u751F\u53F3\u4FA7\u680F\u9762\u677F\uFF08right-sidebar/index.tsx \u7684 aside\uFF09\u3002\u4E0D\u5199 scrollbar-width\uFF1A\r\n   Chromium \u8BBE\u4E86\u6807\u51C6\u5C5E\u6027\u5C31\u4E0D\u8BA4 ::-webkit-scrollbar\uFF0C\u5168\u5C40\u7684\u7EC6\u6EDA\u52A8\u6761\u624D\u80FD\u751F\u6548 */\r\n:root .cx-rail {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 10px;\r\n  height: 100%;\r\n  overflow-y: auto;\r\n  padding: 10px 10px 14px;\r\n  background: var(--ui-sidebar-surface-background);\r\n  color: var(--ui-text-secondary);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n/* \u5361\u7247\u5916\u5F62\u6CBF\u7528 codex-ui */\r\n:root .cx-card {\r\n  border-radius: var(--cx-radius-card);\r\n  background: var(--cx-surface);\r\n  box-shadow: var(--cx-edge);\r\n}\r\n\r\n/* \u5361\u5934 28px\uFF0C\u540C\u539F\u751F\u53F3\u4FA7\u680F\u7684\u533A\u5934\uFF08h-7\uFF09 */\r\n:root .cx-card-head {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 6px;\r\n  height: 28px;\r\n  padding: 0 2px 0 10px;\r\n}\r\n\r\n/* \u5361\u7247\u6807\u9898\u540C Hermes \u7684 SidebarPanelLabel\uFF08app/shell/sidebar-label.tsx\uFF09\uFF1A\u5927\u5199\u30010.16em \u5B57\u8DDD\u30018px dither \u65B9\u70B9 */\r\n:root .cx-card-title {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  min-width: 0;\r\n  padding: 0;\r\n  border: 0;\r\n  background: none;\r\n  color: var(--theme-primary);\r\n  font: inherit;\r\n  font-size: 0.64rem;\r\n  font-weight: 600;\r\n  letter-spacing: 0.16em;\r\n  line-height: 1;\r\n  text-transform: uppercase;\r\n  cursor: pointer;\r\n}\r\n\r\n:root .cx-card-dither {\r\n  width: 8px;\r\n  height: 8px;\r\n  flex: none;\r\n  border-radius: 1px;\r\n}\r\n\r\n/* \u6298\u53E0\u7BAD\u5934\uFF1Ahover \u6216\u952E\u76D8\u805A\u7126\u65F6\u624D\u51FA\u73B0\uFF0C\u540C\u4FA7\u680F\u5206\u7EC4 */\r\n:root .cx-caret {\r\n  display: inline-flex;\r\n  color: var(--ui-text-tertiary);\r\n  opacity: 0;\r\n  transition: opacity var(--cx-dur-snap) ease-out;\r\n}\r\n\r\n:root .cx-card-title:is(:hover, :focus-visible) .cx-caret {\r\n  opacity: 1;\r\n}\r\n\r\n/* \u7A7A\u72B6\u6001\u540C\u539F\u751F\u7684 PaneEmptyState\uFF1A\u5C45\u4E2D\u3001\u5927\u5199\u3001quaternary \u8272 */\r\n:root .cx-empty {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 8px;\r\n  margin: 0;\r\n  padding: 6px 0;\r\n  color: var(--ui-text-quaternary);\r\n  font-size: 0.64rem;\r\n  font-weight: 600;\r\n  letter-spacing: 0.16em;\r\n  line-height: 1;\r\n  text-align: center;\r\n  text-transform: uppercase;\r\n}\r\n\r\n:root .cx-empty > .dither {\r\n  width: 8px;\r\n  height: 8px;\r\n  flex: none;\r\n  border-radius: 1px;\r\n}\r\n\r\n:root .cx-card-body {\r\n  display: grid;\r\n  gap: 4px;\r\n  padding: 0 10px 10px;\r\n  min-width: 0;\r\n}\r\n\r\n:root .cx-row {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n  min-height: 22px;\r\n  min-width: 0;\r\n}\r\n\r\n:root .cx-row-label {\r\n  color: var(--ui-text-tertiary);\r\n  white-space: nowrap;\r\n}\r\n\r\n:root .cx-row-value {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-align: right;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n:root .cx-strong {\r\n  color: var(--ui-text-primary);\r\n}\r\n\r\n:root .cx-muted {\r\n  color: var(--ui-text-tertiary);\r\n}\r\n\r\n:root .cx-mono {\r\n  font-family: var(--dt-font-mono);\r\n  font-size: 11px;\r\n}\r\n\r\n:root .cx-inline {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  min-width: 0;\r\n}\r\n\r\n:root .cx-ellipsis {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n:root .cx-glyph {\r\n  flex: none;\r\n  color: var(--ui-text-tertiary);\r\n}\r\n\r\n:root .cx-goal,\r\n:root .cx-todos {\r\n  display: grid;\r\n  gap: 3px;\r\n}\r\n\r\n:root .cx-subgoal {\r\n  padding-left: 10px;\r\n  border-left: 2px solid var(--cx-line-strong);\r\n}\r\n\r\n/* \u5F85\u529E\u540C\u72B6\u6001\u6808\u7684\u5F85\u529E\u884C\uFF1A\u8FDB\u884C\u4E2D\u7684\u5B57\u7528\u4E3B\u8272\uFF0C\u5B8C\u6210\u548C\u53D6\u6D88\u53D8\u7070\u3001\u4E0D\u5212\u7EBF */\r\n:root .cx-todo {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  min-width: 0;\r\n}\r\n\r\n:root .cx-todo[data-status='in_progress'] {\r\n  color: var(--ui-text-primary);\r\n}\r\n\r\n:root .cx-todo:is([data-status='completed'], [data-status='cancelled']) {\r\n  color: var(--ui-text-tertiary);\r\n}\r\n\r\n:root .cx-todo[data-status='completed'] .cx-lead {\r\n  color: color-mix(in srgb, var(--ui-green) 80%, transparent);\r\n}\r\n\r\n:root .cx-todo[data-status='cancelled'] .cx-lead {\r\n  color: var(--ui-text-quaternary);\r\n}\r\n\r\n/* \u4E0A\u4E0B\u6587\u6761\u540C\u72B6\u6001\u680F\u7684\u4E0A\u4E0B\u6587\u9762\u677F\uFF1A\u5206\u7C7B\u6309 token \u5360\u6BD4\u94FA\u6EE1\uFF0C\u989C\u8272\u6765\u81EA Hermes \u7684 --context-usage-*\u3002\r\n   \u53EA\u5199 background-color\uFF1A\u6CA1\u6709\u5206\u7C7B\u65F6\u5BBF\u4E3B .dither \u7684\u68CB\u76D8\u683C\u624D\u4E0D\u4F1A\u88AB\u76D6\u6389 */\r\n:root .cx-meter {\r\n  display: flex;\r\n  height: 6px;\r\n  overflow: hidden;\r\n  border-radius: 9999px;\r\n  background-color: var(--ui-stroke-tertiary);\r\n}\r\n\r\n:root .cx-meter.dither {\r\n  background-color: var(--ui-bg-elevated);\r\n}\r\n\r\n:root .cx-meter > span {\r\n  height: 100%;\r\n  min-width: 1px;\r\n  transition: width var(--cx-dur-base) var(--cx-ease-out);\r\n}\r\n\r\n:root .cx-legend {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 2px 10px;\r\n  color: var(--ui-text-tertiary);\r\n  font-size: 11px;\r\n}\r\n\r\n:root .cx-legend i {\r\n  display: inline-block;\r\n  width: 6px;\r\n  height: 6px;\r\n  margin-right: 4px;\r\n  border-radius: 2px;\r\n  vertical-align: 1px;\r\n}\r\n\r\n/* \u72B6\u6001\u70B9\uFF1Acodex-ui \u7684 6px \u5706\u70B9 */\r\n:root .cx-dot {\r\n  width: 6px;\r\n  height: 6px;\r\n  flex: none;\r\n  border-radius: 50%;\r\n  background: var(--ui-text-tertiary);\r\n}\r\n\r\n:root .cx-dot[data-tone='good'] {\r\n  background: var(--ui-green);\r\n}\r\n\r\n:root .cx-dot[data-tone='warn'] {\r\n  background: var(--cx-warning-fill);\r\n}\r\n\r\n:root .cx-dot[data-tone='bad'] {\r\n  background: var(--ui-red);\r\n}\r\n\r\n:root .cx-dot[data-tone='off'] {\r\n  background: var(--cx-line-strong);\r\n}\r\n\r\n/* \u5217\u8868\u884C\uFF08\u8FDE\u63A5\u5668\u3001\u540E\u53F0\uFF09\u540C\u72B6\u6001\u6808\u7684\u884C\uFF1A\u6700\u5C0F 24px\u30016px \u5706\u89D2\uFF0Chover \u7528\u884C\u5E95\u8272\u3002\u6309\u94AE\u7528 SDK \u7684 Button */\r\n:root .cx-item {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  min-height: 24px;\r\n  min-width: 0;\r\n  margin: 0 -6px;\r\n  padding: 2px 6px;\r\n  border-radius: 6px;\r\n}\r\n\r\n:root .cx-item:hover {\r\n  background: var(--ui-row-hover-background);\r\n}\r\n\r\n:root .cx-item > .cx-ellipsis {\r\n  flex: 1;\r\n}\r\n\r\n/* \u884C\u9996\u56FE\u6807\u4E00\u683C 14px\uFF1A\u72B6\u6001\u70B9\u3001\u8F6C\u5708\u3001\u5F85\u529E\u56FE\u6807\u90FD\u653E\u5728\u8FD9\u91CC\uFF0C\u884C\u4E0E\u884C\u5BF9\u9F50 */\r\n:root .cx-lead {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 14px;\r\n  height: 14px;\r\n  flex: none;\r\n}\r\n\r\n/* \u8FD0\u884C\u4E2D\uFF1A\u540C\u72B6\u6001\u6808\u7684 braille \u8F6C\u5708 */\r\n:root .cx-spin {\r\n  color: color-mix(in srgb, var(--ui-text-tertiary) 80%, transparent);\r\n  font-size: 0.85rem;\r\n  line-height: 1;\r\n}\r\n\r\n/* \u8FD8\u6CA1\u5F00\u59CB\u7684\u5F85\u529E\uFF1A\u540C\u539F\u751F StatusPendingIcon \u7684\u865A\u7EBF\u5708 */\r\n:root .cx-pending {\r\n  box-sizing: border-box;\r\n  width: 0.7rem;\r\n  height: 0.7rem;\r\n  border: 1px dashed color-mix(in srgb, var(--ui-text-tertiary) 60%, transparent);\r\n  border-radius: 50%;\r\n}\r\n\r\n/* \u5931\u8D25\u8FDB\u7A0B\u7684\u9000\u51FA\u7801\u5FBD\u6807\uFF0C\u540C\u72B6\u6001\u6808 */\r\n:root .cx-exit {\r\n  flex: none;\r\n  padding: 0 4px;\r\n  border-radius: 4px;\r\n  background: color-mix(in srgb, var(--ui-red) 15%, transparent);\r\n  color: var(--ui-red);\r\n  font-size: 0.58rem;\r\n  font-weight: 600;\r\n  font-variant-numeric: tabular-nums;\r\n}\r\n\r\n:root .cx-accent {\r\n  color: var(--ui-accent);\r\n}\r\n";
 
 // src/styles/composer.css
 var composer_default = "/* \u2500\u2500 Claude UI \xB7 composer \u4E0E\u505C\u9760\u5361 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n   \u8F93\u5165\u6846\uFF1A\u4E0D\u900F\u660E\u5361\u9762 + \u4E00\u5708\u58A8\u8272\u7EC6\u73AF + 3.5% \u8F6F\u9634\u5F71\uFF0C\u805A\u7126\u65F6\u9634\u5F71\u52A0\u6DF1\uFF08codex-ui composer.css:301\uFF09\u3002\r\n   \u5BA1\u6279\u5361\u3001\u63D0\u95EE\u5361\uFF1A\u4ECE\u6D88\u606F\u6D41\u91CC\u300C\u505C\u9760\u300D\u5230\u8F93\u5165\u6846\u6B63\u4E0A\u65B9 6px\uFF0C\u4E0E\u8F93\u5165\u6846\u540C\u5BBD\uFF0C\u6EDA\u52A8\u65F6\u5438\u4F4F\u4E0D\u8D70\u3002 */\r\n\r\n/* \u6D88\u606F\u89C6\u53E3\u7684\u5E95\u8FB9\u6BD4\u8F93\u5165\u6846\u5361\u9762\u9876\u8FB9\u4F4E (composer \u6D4B\u91CF\u9AD8\u5EA6 \u2212 1.125rem \u2212 3px)\uFF0C\u518D\u7559 6px \u7F1D\u3002\r\n   \u6D4B\u91CF\u503C\u5185\u8054\u5728\u6BCF\u4E2A [data-chat-surface] \u4E0A\uFF0C\u6240\u4EE5\u8FD9\u4E2A\u91CF\u4E5F\u5FC5\u987B\u5728\u90A3\u91CC\u6C42\u503C\u3002 */\r\n:root [data-chat-surface] {\r\n  --cx-dock-offset: calc(var(--composer-measured-height, 48px) - 1.125rem + 9px);\r\n}\r\n\r\n:root [data-slot='composer-root'],\r\n:root [data-slot='composer-root'][data-thread-scrolled-up] {\r\n  --composer-fill: var(--cx-popover);\r\n}\r\n\r\n:root [data-slot='composer-surface'] {\r\n  border-color: var(--cx-line) !important;\r\n  box-shadow: var(--cx-shadow-composer);\r\n  transition:\r\n    box-shadow var(--cx-dur-base) cubic-bezier(0.4, 0, 0.2, 1),\r\n    border-color var(--cx-dur-snap) ease-out;\r\n}\r\n\r\n:root [data-slot='composer-surface']:hover {\r\n  border-color: var(--cx-line-strong) !important;\r\n}\r\n\r\n:root [data-slot='composer-root']:focus-within [data-slot='composer-surface'] {\r\n  box-shadow: var(--cx-shadow-composer-focus);\r\n}\r\n\r\n/* \u9009\u62E9\u5668\u884C\uFF1A\u6A21\u578B\u3001\u63A8\u7406\u5F3A\u5EA6\u7528 secondary \u8272\uFF0Chover \u624D\u5230 primary */\r\n:root [data-slot='composer-root'] :is([data-tour='model-pill'], [data-testid='reasoning-pill'], [aria-label='Open model picker']) {\r\n  color: var(--ui-text-secondary);\r\n}\r\n\r\n:root [data-slot='composer-root'] :is([data-tour='model-pill'], [data-testid='reasoning-pill'], [aria-label='Open model picker']):hover {\r\n  color: var(--ui-text-primary);\r\n}\r\n\r\n/* \u2500\u2500 \u505C\u9760\uFF1A\u6709\u5F85\u5904\u7406\u7684\u5BA1\u6279\u6216\u63D0\u95EE\u65F6\uFF0C\u6D88\u606F\u5E95\u90E8\u53EA\u7ED9\u5B83\u4EEC\u7559\u51FA\u5361\u7247\u5230\u8F93\u5165\u6846\u7684\u8DDD\u79BB \u2500\u2500 */\r\n:root [data-chat-surface]:has([data-slot='tool-approval-stack'], form[data-clarify-batch]:not([data-clarify-batch-preview])) {\r\n  --thread-last-message-clearance: var(--cx-dock-offset) !important;\r\n}\r\n\r\n/* \u4E0E\u8F93\u5165\u6846\u5361\u9762\u5DE6\u53F3\u5BF9\u9F50\uFF1A\u5185\u5BB9\u5217\u5DE6\u53F3\u5404\u6709 24px \u5185\u8FB9\u8DDD\u3001\u53F3\u4FA7\u591A 8px \u6EDA\u52A8\u6761\u69FD\u4F4D\uFF1B\u8F93\u5165\u6846\u5DE6\u53F3\u5404\u5185\u7F29 1rem */\r\n:root [data-slot='tool-approval-stack'] {\r\n  position: sticky;\r\n  bottom: var(--cx-dock-offset);\r\n  z-index: 30;\r\n  width: calc(100% + 24px);\r\n  max-width: none;\r\n  margin-left: -8px;\r\n}\r\n\r\n:root [data-slot='aui_assistant-message-root']:has(form[data-clarify-batch]:not([data-clarify-batch-preview])),\r\n:root [data-slot='aui_assistant-message-content']:has(> form[data-clarify-batch]:not([data-clarify-batch-preview])) {\r\n  overflow: visible;\r\n}\r\n\r\n:root form[data-clarify-batch]:not([data-clarify-batch-preview]) {\r\n  position: sticky;\r\n  bottom: var(--cx-dock-offset);\r\n  z-index: 30;\r\n  width: calc(100% + 36px);\r\n  /* \u56DE\u5408\u5BB9\u5668\u5E95\u90E8\u8FD8\u6709 5px \u7559\u767D\uFF0C\u5403\u6389\u5B83\uFF0C\u63D0\u95EE\u5361\u4E0E\u5BA1\u6279\u5361\u79BB\u8F93\u5165\u6846\u90FD\u662F 6px */\r\n  margin: 0.5rem 0 -5px -20px;\r\n}\r\n\r\n/* \u2500\u2500 \u5BA1\u6279\u5361\uFF08codex-ui approval-card\uFF09\u2500\u2500 */\r\n/* \u6D3B\u52A8\u6458\u8981\u884C\u4E0E\u6D88\u606F\u6B63\u6587\u7684\u7F29\u8FDB\u5BF9\u9F50 */\r\n:root [data-slot='tool-approval-stack'] [data-approval-activity] {\r\n  padding-left: 20px;\r\n}\r\n\r\n:root [data-slot='tool-approval-stack'] :is([data-slot='card-stack-surface'], [data-slot='card-stack-edge']) {\r\n  border-color: transparent;\r\n  border-radius: var(--cx-radius-dock);\r\n  background: var(--cx-popover);\r\n  box-shadow: var(--cx-edge), var(--cx-shadow-composer);\r\n}\r\n\r\n:root [data-slot='tool-approval-stack'] [data-slot='card-stack-edge'] {\r\n  background: var(--cx-surface);\r\n  box-shadow: var(--cx-edge);\r\n}\r\n\r\n:root [data-slot='tool-approval-card'] {\r\n  padding: 6px 4px 2px;\r\n}\r\n\r\n:root [data-slot='tool-approval-card'] > div:first-child {\r\n  color: var(--ui-text-primary);\r\n  font-weight: 500;\r\n}\r\n\r\n:root [data-slot='tool-approval-card'] > pre {\r\n  margin: 6px 10px 4px;\r\n  padding: 8px 12px;\r\n  border-radius: 5px;\r\n  background: color-mix(in srgb, var(--ui-base) 5%, transparent);\r\n  color: var(--ui-text-secondary);\r\n}\r\n\r\n/* \u2500\u2500 \u505C\u9760\u5361\u91CC\u7684\u4E3B\u6309\u94AE\u4E0E\u53D1\u9001\u952E\u540C\u8272\uFF08\u58A8\u8272\uFF09\uFF0C\u6B21\u6309\u94AE\u662F\u5E26\u7EC6\u73AF\u7684\u8FD1\u900F\u660E\u5E95 \u2500\u2500 */\r\n:root :is([data-slot='tool-approval-actions'], form[data-clarify-batch]) [data-slot='button'][data-variant='default'] {\r\n  border-color: transparent;\r\n  background: var(--ui-text-primary);\r\n  color: var(--ui-bg-chrome);\r\n}\r\n\r\n:root :is([data-slot='tool-approval-actions'], form[data-clarify-batch]) [data-slot='button'][data-variant='default']:hover {\r\n  background: color-mix(in srgb, var(--ui-text-primary) 86%, var(--ui-bg-chrome));\r\n}\r\n\r\n:root [data-slot='tool-approval-actions'] [data-variant='secondary'] {\r\n  border-color: transparent;\r\n  background: color-mix(in srgb, #fff 10%, transparent);\r\n  box-shadow: inset 0 0 0 1px var(--cx-line), 0 1px 2px #0000000d;\r\n  color: var(--ui-text-primary);\r\n}\r\n\r\n:root [data-slot='tool-approval-actions'] [data-variant='secondary']:hover {\r\n  background: var(--cx-hover);\r\n}\r\n\r\n:root :is([data-slot='tool-approval-actions'], form[data-clarify-batch]) [data-slot='button'] {\r\n  border-radius: var(--cx-radius-control);\r\n}\r\n\r\n/* \u2500\u2500 \u63D0\u95EE\u5361\uFF08codex-ui question card\uFF09\uFF1A\u6574\u5F20 form \u5F53\u5361\u9762\uFF0C\u6309\u94AE\u6536\u8FDB\u5361\u7247\u5E95\u90E8 \u2500\u2500 */\r\n:root form[data-clarify-batch] {\r\n  gap: 10px;\r\n  padding: 12px 12px 10px;\r\n  border-radius: var(--cx-radius-dock);\r\n  background: var(--cx-popover);\r\n  box-shadow: var(--cx-edge), var(--cx-shadow-composer);\r\n}\r\n\r\n:root form[data-clarify-batch] > [data-slot='clarify-inline'] {\r\n  padding: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n}\r\n\r\n/* \u5934\u90E8\u7684\u300C0 of 2 answered\u300D\u505A\u6210 codex-ui \u7684\u6B65\u6570\u80F6\u56CA */\r\n:root form[data-clarify-batch] > [data-slot='clarify-inline'] > div:first-child > span:first-child {\r\n  flex: none;\r\n  padding: 1px 7px;\r\n  border-radius: 999px;\r\n  background: var(--cx-warning-bg);\r\n  color: var(--cx-warning);\r\n  font-weight: 500;\r\n}\r\n\r\n:root form[data-clarify-batch] > [data-slot='clarify-inline'] > div:first-child {\r\n  justify-content: space-between;\r\n}\r\n\r\n:root form[data-clarify-batch] [data-clarify-batch-question] > div:first-child > span:first-child {\r\n  font-weight: 600;\r\n}\r\n\r\n:root form[data-clarify-batch] [data-choice],\r\n:root form[data-clarify-batch] [role='group'] > label {\r\n  min-height: 28px;\r\n  padding: 4px 8px;\r\n  border-radius: var(--cx-radius-control);\r\n  transition: background-color var(--cx-dur-snap) ease-out;\r\n}\r\n\r\n:root form[data-clarify-batch] [data-choice]:hover,\r\n:root form[data-clarify-batch] :is([data-choice], label)[data-highlighted] {\r\n  background: var(--cx-hover);\r\n}\r\n\r\n:root form[data-clarify-batch] [data-choice][aria-pressed='true'] {\r\n  background: color-mix(in srgb, var(--ui-accent) 9%, transparent);\r\n  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 45%, transparent);\r\n}\r\n\r\n:root form[data-clarify-batch] [data-choice][aria-pressed='true'] [data-slot='kbd'] {\r\n  border-color: transparent;\r\n  background: var(--ui-accent);\r\n  color: var(--dt-midground-foreground);\r\n}\r\n\r\n:root form[data-clarify-batch] [data-slot='kbd'] {\r\n  border-radius: 4px;\r\n}\r\n\r\n:root form[data-clarify-batch] textarea {\r\n  border-radius: var(--cx-radius-control);\r\n}\r\n\r\n/* \u56DE\u6267\u6CBF\u7528\u540C\u4E00\u5361\u9762\uFF0C\u4F46\u7559\u5728\u6D88\u606F\u6D41\u91CC */\r\n:root [data-slot='clarify-inline'][data-clarify-settled] {\r\n  border-radius: var(--cx-radius-dock);\r\n  background: var(--cx-surface);\r\n  box-shadow: var(--cx-edge);\r\n}\r\n";
@@ -1795,7 +1951,7 @@ ${C} > :is(${MEMBER},${TOGGLE} + ${TV}) {
 `;
 
 // src/styles/tokens.css
-var tokens_default = "/* \u2500\u2500 Claude UI \xB7 tokens \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n   Hermes \u7684\u8868\u9762\u8272\u7531\u79CD\u5B50\u8272 color-mix \u63A8\u5BFC\uFF08styles.css @layer base\uFF09\u3002\u8FD9\u91CC\u4E0D\u5206\u5C42\uFF0C\r\n   \u76F4\u63A5\u628A\u63A8\u5BFC\u7ED3\u679C\u9489\u56DE\u8BBE\u8BA1\u503C\uFF0C\u5E76\u53BB\u6389\u5F3A\u8C03\u8272\u5728\u4E2D\u6027\u586B\u5145\u548C\u63CF\u8FB9\u91CC\u7684\u63BA\u8272\uFF1A\r\n   codex-ui \u7684\u5C42\u6B21\u53EA\u9760\u58A8\u8272\u900F\u660E\u5EA6\uFF0C\u84DD\u8272\u53EA\u7559\u7ED9\u4EA4\u4E92\u4E0E Hermes \u7684\u54C1\u724C\u5143\u7D20\u3002 */\r\n\r\n:root {\r\n  --radius-scalar: 0.4;\r\n\r\n  --ui-bg-chrome: var(--theme-background-seed);\r\n  --ui-bg-sidebar: var(--theme-sidebar-seed);\r\n  --ui-bg-editor: var(--theme-card-seed);\r\n  --ui-bg-elevated: var(--theme-elevated-seed);\r\n  --ui-chat-bubble-background: var(--theme-bubble-seed);\r\n  --ui-widget-surface-background: var(--theme-card-seed);\r\n\r\n  --theme-fill-primary-accent-mix: 0%;\r\n  --theme-fill-secondary-accent-mix: 0%;\r\n  --theme-fill-tertiary-accent-mix: 0%;\r\n  --theme-fill-quaternary-accent-mix: 0%;\r\n  --theme-fill-quinary-accent-mix: 0%;\r\n  --theme-stroke-primary-accent-mix: 0%;\r\n  --theme-stroke-secondary-accent-mix: 0%;\r\n  --theme-stroke-tertiary-accent-mix: 0%;\r\n  --theme-stroke-quaternary-accent-mix: 0%;\r\n  --theme-row-hover-accent-mix: 0%;\r\n  --theme-row-active-accent-mix: 0%;\r\n  --theme-control-hover-accent-mix: 0%;\r\n  --theme-control-active-accent-mix: 0%;\r\n\r\n  --ui-blue: var(--theme-primary);\r\n\r\n  /* codex-ui \u52A8\u6548\uFF08tokens.css:235-247\uFF09 */\r\n  --cx-dur-fast: 60ms;\r\n  --cx-dur-snap: 120ms;\r\n  --cx-dur-base: 200ms;\r\n  --cx-dur-sheet: 300ms;\r\n  --cx-dur-slow: 450ms;\r\n  --cx-ease-out: cubic-bezier(0.165, 0.84, 0.44, 1);\r\n  --cx-ease-snap: cubic-bezier(0.32, 0.72, 0, 1);\r\n  --cx-overshoot: cubic-bezier(0.34, 1.3, 0.64, 1);\r\n\r\n  /* \u672C\u63D2\u4EF6\u81EA\u5DF1\u7684\u7EC4\u4EF6\u4E0E\u91CD\u5851\u89C4\u5219\u5171\u7528\u7684\u51E0\u4E2A\u91CF */\r\n  --cx-surface: var(--ui-bg-editor);\r\n  --cx-popover: var(--ui-bg-elevated);\r\n  --cx-hover: color-mix(in srgb, var(--ui-base) 5%, transparent);\r\n  --cx-selected: color-mix(in srgb, var(--ui-base) 10%, transparent);\r\n  --cx-line: color-mix(in srgb, var(--ui-base) 10%, transparent);\r\n  --cx-line-strong: color-mix(in srgb, var(--ui-base) 20%, transparent);\r\n  --cx-edge: 0 0 0 1px var(--cx-line);\r\n  --cx-edge-strong: 0 0 0 1px var(--cx-line-strong);\r\n  --cx-shadow-popover: 0 8px 24px #0000001f, 0 2px 6px #00000014;\r\n  --cx-shadow-dialog: 0 4px 8px #0b0b0b14, 0 12px 28px -2px #0b0b0b14;\r\n  --cx-shadow-composer: 0 0.25rem 1.25rem color-mix(in srgb, #000 3.5%, transparent);\r\n  --cx-shadow-composer-focus: 0 0.25rem 1.25rem color-mix(in srgb, #000 7.5%, transparent);\r\n  --cx-radius-control: 4px;\r\n  --cx-radius-card: 6px;\r\n  --cx-radius-dock: 10px;\r\n}\r\n\r\n:root:not(.dark) {\r\n  --ui-text-primary: #0b0b0b;\r\n  --ui-text-secondary: #52514e;\r\n  --ui-text-tertiary: #898781;\r\n  --ui-text-quaternary: color-mix(in srgb, #0b0b0b 35%, transparent);\r\n  --conversation-scaffold-text: #898781;\r\n  --conversation-scaffold-meta: color-mix(in srgb, #0b0b0b 35%, transparent);\r\n\r\n  --ui-row-hover-background: color-mix(in srgb, #0b0b0b 4.5%, transparent);\r\n  --ui-row-active-background: color-mix(in srgb, #0b0b0b 7%, transparent);\r\n  --ui-control-hover-background: color-mix(in srgb, #0b0b0b 5%, transparent);\r\n  --ui-control-active-background: color-mix(in srgb, #0b0b0b 8%, transparent);\r\n\r\n  --ui-red: #d03b3b;\r\n  --ui-green: #1e9e3c;\r\n  --ui-yellow: #c98a00;\r\n  --ui-orange: #c5621b;\r\n  --ui-purple: #7161e0;\r\n  --ui-diff-add-border: #1e9e3c;\r\n  --ui-diff-add-background: color-mix(in srgb, #1e9e3c 14%, transparent);\r\n  --ui-diff-add-foreground: #157a2e;\r\n  --ui-diff-remove-border: #cd2054;\r\n  --ui-diff-remove-background: color-mix(in srgb, #cd2054 12%, transparent);\r\n  --ui-diff-remove-foreground: #a8173f;\r\n\r\n  --ui-inline-code-background: color-mix(in srgb, #0b0b0b 5%, transparent);\r\n  --ui-inline-code-foreground: #8e2626;\r\n  --ui-selection-background: color-mix(in srgb, #1f5fe0 20%, transparent);\r\n  --dt-scrollbar-thumb: rgb(30 30 29 / 35%);\r\n\r\n  --cx-warning: #734500;\r\n  --cx-warning-fill: #fab219;\r\n  --cx-warning-bg: #f9dca4;\r\n  --cx-danger: #8e2626;\r\n  --cx-success: #006300;\r\n  --cx-pro: #4a3aa7;\r\n  --cx-pro-fill: #7161e0;\r\n  --cx-git-add: #1e9e3c;\r\n  --cx-git-remove: #cd2054;\r\n}\r\n\r\n:root.dark {\r\n  --ui-text-primary: #f0efec;\r\n  --ui-text-secondary: #c3c2b7;\r\n  --ui-text-tertiary: #898781;\r\n  --ui-text-quaternary: color-mix(in srgb, #ffffff 35%, transparent);\r\n  --conversation-scaffold-text: #898781;\r\n  --conversation-scaffold-meta: color-mix(in srgb, #ffffff 35%, transparent);\r\n\r\n  --ui-row-hover-background: color-mix(in srgb, #ffffff 7.5%, transparent);\r\n  --ui-row-active-background: color-mix(in srgb, #ffffff 11%, transparent);\r\n  --ui-control-hover-background: color-mix(in srgb, #ffffff 7.5%, transparent);\r\n  --ui-control-active-background: color-mix(in srgb, #ffffff 12%, transparent);\r\n\r\n  --ui-red: #ec7e7e;\r\n  --ui-green: #32d74b;\r\n  --ui-yellow: #db9300;\r\n  --ui-orange: #fa832e;\r\n  --ui-purple: #a096eb;\r\n  --ui-diff-add-border: #32d74b;\r\n  --ui-diff-add-background: color-mix(in srgb, #32d74b 16%, transparent);\r\n  --ui-diff-add-foreground: color-mix(in srgb, #32d74b 70%, #fff);\r\n  --ui-diff-remove-border: #ff2c56;\r\n  --ui-diff-remove-background: color-mix(in srgb, #ff2c56 16%, transparent);\r\n  --ui-diff-remove-foreground: color-mix(in srgb, #ff2c56 62%, #fff);\r\n\r\n  --ui-inline-code-background: color-mix(in srgb, #ffffff 7%, transparent);\r\n  --ui-inline-code-foreground: #ec7e7e;\r\n  --ui-selection-background: color-mix(in srgb, #7aa2ff 28%, transparent);\r\n  --dt-scrollbar-thumb: rgb(225 224 217 / 35%);\r\n\r\n  --cx-hover: color-mix(in srgb, #ffffff 7.5%, transparent);\r\n  --cx-selected: color-mix(in srgb, #ffffff 15%, transparent);\r\n  --cx-edge: inset 0 0 0 1px var(--cx-line);\r\n  --cx-edge-strong: inset 0 0 0 1px var(--cx-line-strong);\r\n  --cx-shadow-popover: 0 8px 24px #0000003d, 0 2px 6px #00000029;\r\n  --cx-shadow-dialog: 0 4px 8px #0000003d, 0 12px 28px -2px #0000003d;\r\n\r\n  --cx-warning: #db9300;\r\n  --cx-warning-fill: #fab219;\r\n  --cx-warning-bg: #311a00;\r\n  --cx-danger: #ec7e7e;\r\n  --cx-success: #0ca30c;\r\n  --cx-pro: #a096eb;\r\n  --cx-pro-fill: #7161e0;\r\n  --cx-git-add: #32d74b;\r\n  --cx-git-remove: #ff2c56;\r\n}\r\n\r\n/* codex-ui \u7684\u6587\u5B57\u9AD8\u5149\uFF08base.css:1615 / tokens.css:963\uFF09\uFF1A3s \u4E00\u6B21\uFF0C\u9996\u5C3E\u5404\u505C 15%\u3002\r\n   \u8986\u76D6 Hermes \u7684 tw-shimmer\uFF0C\u8BA9\u5DE5\u4F5C\u884C\u3001\u8FD0\u884C\u4E2D\u5DE5\u5177\u884C\u7528\u540C\u4E00\u79CD\u5149\u3002 */\r\n@keyframes cx-shimmer {\r\n  0%,\r\n  15% {\r\n    background-position: 83.333% 0;\r\n    animation-timing-function: cubic-bezier(0.714, 0.121, 0.211, 0.888);\r\n  }\r\n  85%,\r\n  100% {\r\n    background-position: 16.667% 0;\r\n  }\r\n}\r\n\r\n@keyframes cx-breathe {\r\n  0%,\r\n  100% {\r\n    filter: brightness(0.96);\r\n    transform: scale(0.86);\r\n  }\r\n  50% {\r\n    filter: brightness(1.06);\r\n    transform: scale(1);\r\n  }\r\n}\r\n\r\n@keyframes cx-blink {\r\n  0%,\r\n  100% {\r\n    opacity: 0.3;\r\n  }\r\n  50% {\r\n    opacity: 1;\r\n  }\r\n}\r\n\r\n@media (prefers-reduced-motion: reduce) {\r\n  :root .shimmer,\r\n  :root .cx-shimmer,\r\n  :root [data-cx-breathe] {\r\n    animation: none !important;\r\n  }\r\n}\r\n";
+var tokens_default = "/* \u2500\u2500 Claude UI \xB7 tokens \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n   Hermes \u7684\u8868\u9762\u8272\u7531\u79CD\u5B50\u8272 color-mix \u63A8\u5BFC\uFF08styles.css @layer base\uFF09\u3002\u8FD9\u91CC\u4E0D\u5206\u5C42\uFF0C\r\n   \u76F4\u63A5\u628A\u63A8\u5BFC\u7ED3\u679C\u9489\u56DE\u8BBE\u8BA1\u503C\uFF0C\u5E76\u53BB\u6389\u5F3A\u8C03\u8272\u5728\u4E2D\u6027\u586B\u5145\u548C\u63CF\u8FB9\u91CC\u7684\u63BA\u8272\uFF1A\r\n   codex-ui \u7684\u5C42\u6B21\u53EA\u9760\u58A8\u8272\u900F\u660E\u5EA6\uFF0C\u84DD\u8272\u53EA\u7559\u7ED9\u4EA4\u4E92\u4E0E Hermes \u7684\u54C1\u724C\u5143\u7D20\u3002 */\r\n\r\n:root {\r\n  --radius-scalar: 0.4;\r\n\r\n  --ui-bg-chrome: var(--theme-background-seed);\r\n  --ui-bg-sidebar: var(--theme-sidebar-seed);\r\n  --ui-bg-editor: var(--theme-card-seed);\r\n  --ui-bg-elevated: var(--theme-elevated-seed);\r\n  --ui-chat-bubble-background: var(--theme-bubble-seed);\r\n  --ui-widget-surface-background: var(--theme-card-seed);\r\n\r\n  --theme-fill-primary-accent-mix: 0%;\r\n  --theme-fill-secondary-accent-mix: 0%;\r\n  --theme-fill-tertiary-accent-mix: 0%;\r\n  --theme-fill-quaternary-accent-mix: 0%;\r\n  --theme-fill-quinary-accent-mix: 0%;\r\n  --theme-stroke-primary-accent-mix: 0%;\r\n  --theme-stroke-secondary-accent-mix: 0%;\r\n  --theme-stroke-tertiary-accent-mix: 0%;\r\n  --theme-stroke-quaternary-accent-mix: 0%;\r\n  --theme-row-hover-accent-mix: 0%;\r\n  --theme-row-active-accent-mix: 0%;\r\n  --theme-control-hover-accent-mix: 0%;\r\n  --theme-control-active-accent-mix: 0%;\r\n\r\n  --ui-blue: var(--theme-primary);\r\n\r\n  /* codex-ui \u52A8\u6548\uFF08tokens.css:235-247\uFF09 */\r\n  --cx-dur-fast: 60ms;\r\n  --cx-dur-snap: 120ms;\r\n  --cx-dur-base: 200ms;\r\n  --cx-dur-sheet: 300ms;\r\n  --cx-dur-slow: 450ms;\r\n  --cx-ease-out: cubic-bezier(0.165, 0.84, 0.44, 1);\r\n  --cx-ease-snap: cubic-bezier(0.32, 0.72, 0, 1);\r\n  --cx-overshoot: cubic-bezier(0.34, 1.3, 0.64, 1);\r\n\r\n  /* \u672C\u63D2\u4EF6\u81EA\u5DF1\u7684\u7EC4\u4EF6\u4E0E\u91CD\u5851\u89C4\u5219\u5171\u7528\u7684\u51E0\u4E2A\u91CF */\r\n  --cx-surface: var(--ui-bg-editor);\r\n  --cx-popover: var(--ui-bg-elevated);\r\n  --cx-hover: color-mix(in srgb, var(--ui-base) 5%, transparent);\r\n  --cx-selected: color-mix(in srgb, var(--ui-base) 10%, transparent);\r\n  --cx-line: color-mix(in srgb, var(--ui-base) 10%, transparent);\r\n  --cx-line-strong: color-mix(in srgb, var(--ui-base) 20%, transparent);\r\n  --cx-edge: 0 0 0 1px var(--cx-line);\r\n  --cx-edge-strong: 0 0 0 1px var(--cx-line-strong);\r\n  --cx-shadow-popover: 0 8px 24px #0000001f, 0 2px 6px #00000014;\r\n  --cx-shadow-dialog: 0 4px 8px #0b0b0b14, 0 12px 28px -2px #0b0b0b14;\r\n  --cx-shadow-composer: 0 0.25rem 1.25rem color-mix(in srgb, #000 3.5%, transparent);\r\n  --cx-shadow-composer-focus: 0 0.25rem 1.25rem color-mix(in srgb, #000 7.5%, transparent);\r\n  --cx-radius-control: 4px;\r\n  --cx-radius-card: 6px;\r\n  --cx-radius-dock: 10px;\r\n}\r\n\r\n:root:not(.dark) {\r\n  --ui-text-primary: #0b0b0b;\r\n  --ui-text-secondary: #52514e;\r\n  --ui-text-tertiary: #898781;\r\n  --ui-text-quaternary: color-mix(in srgb, #0b0b0b 35%, transparent);\r\n  --conversation-scaffold-text: #898781;\r\n  --conversation-scaffold-meta: color-mix(in srgb, #0b0b0b 35%, transparent);\r\n\r\n  --ui-row-hover-background: color-mix(in srgb, #0b0b0b 4.5%, transparent);\r\n  --ui-row-active-background: color-mix(in srgb, #0b0b0b 7%, transparent);\r\n  --ui-control-hover-background: color-mix(in srgb, #0b0b0b 5%, transparent);\r\n  --ui-control-active-background: color-mix(in srgb, #0b0b0b 8%, transparent);\r\n\r\n  --ui-red: #d03b3b;\r\n  --ui-green: #1e9e3c;\r\n  --ui-yellow: #c98a00;\r\n  --ui-orange: #c5621b;\r\n  --ui-purple: #7161e0;\r\n  --ui-diff-add-border: #1e9e3c;\r\n  --ui-diff-add-background: color-mix(in srgb, #1e9e3c 14%, transparent);\r\n  --ui-diff-add-foreground: #157a2e;\r\n  --ui-diff-remove-border: #cd2054;\r\n  --ui-diff-remove-background: color-mix(in srgb, #cd2054 12%, transparent);\r\n  --ui-diff-remove-foreground: #a8173f;\r\n\r\n  --ui-inline-code-background: color-mix(in srgb, #0b0b0b 5%, transparent);\r\n  --ui-inline-code-foreground: #8e2626;\r\n  --ui-selection-background: color-mix(in srgb, #1f5fe0 20%, transparent);\r\n  --dt-scrollbar-thumb: rgb(30 30 29 / 35%);\r\n\r\n  --cx-warning: #734500;\r\n  --cx-warning-fill: #fab219;\r\n  --cx-warning-bg: #f9dca4;\r\n  --cx-danger: #8e2626;\r\n  --cx-success: #006300;\r\n  --cx-pro: #4a3aa7;\r\n  --cx-pro-fill: #7161e0;\r\n  --cx-git-add: #1e9e3c;\r\n  --cx-git-remove: #cd2054;\r\n}\r\n\r\n:root.dark {\r\n  --ui-text-primary: #f0efec;\r\n  --ui-text-secondary: #c3c2b7;\r\n  --ui-text-tertiary: #898781;\r\n  --ui-text-quaternary: color-mix(in srgb, #ffffff 35%, transparent);\r\n  --conversation-scaffold-text: #898781;\r\n  --conversation-scaffold-meta: color-mix(in srgb, #ffffff 35%, transparent);\r\n\r\n  --ui-row-hover-background: color-mix(in srgb, #ffffff 7.5%, transparent);\r\n  --ui-row-active-background: color-mix(in srgb, #ffffff 11%, transparent);\r\n  --ui-control-hover-background: color-mix(in srgb, #ffffff 7.5%, transparent);\r\n  --ui-control-active-background: color-mix(in srgb, #ffffff 12%, transparent);\r\n\r\n  --ui-red: #ec7e7e;\r\n  --ui-green: #32d74b;\r\n  --ui-yellow: #db9300;\r\n  --ui-orange: #fa832e;\r\n  --ui-purple: #a096eb;\r\n  --ui-diff-add-border: #32d74b;\r\n  --ui-diff-add-background: color-mix(in srgb, #32d74b 16%, transparent);\r\n  --ui-diff-add-foreground: color-mix(in srgb, #32d74b 70%, #fff);\r\n  --ui-diff-remove-border: #ff2c56;\r\n  --ui-diff-remove-background: color-mix(in srgb, #ff2c56 16%, transparent);\r\n  --ui-diff-remove-foreground: color-mix(in srgb, #ff2c56 62%, #fff);\r\n\r\n  --ui-inline-code-background: color-mix(in srgb, #ffffff 7%, transparent);\r\n  --ui-inline-code-foreground: #ec7e7e;\r\n  --ui-selection-background: color-mix(in srgb, #7aa2ff 28%, transparent);\r\n  --dt-scrollbar-thumb: rgb(225 224 217 / 35%);\r\n\r\n  --cx-hover: color-mix(in srgb, #ffffff 7.5%, transparent);\r\n  --cx-selected: color-mix(in srgb, #ffffff 15%, transparent);\r\n  --cx-edge: inset 0 0 0 1px var(--cx-line);\r\n  --cx-edge-strong: inset 0 0 0 1px var(--cx-line-strong);\r\n  --cx-shadow-popover: 0 8px 24px #0000003d, 0 2px 6px #00000029;\r\n  --cx-shadow-dialog: 0 4px 8px #0000003d, 0 12px 28px -2px #0000003d;\r\n\r\n  --cx-warning: #db9300;\r\n  --cx-warning-fill: #fab219;\r\n  --cx-warning-bg: #311a00;\r\n  --cx-danger: #ec7e7e;\r\n  --cx-success: #0ca30c;\r\n  --cx-pro: #a096eb;\r\n  --cx-pro-fill: #7161e0;\r\n  --cx-git-add: #32d74b;\r\n  --cx-git-remove: #ff2c56;\r\n}\r\n\r\n/* codex-ui \u7684\u6587\u5B57\u9AD8\u5149\uFF08base.css:1615 / tokens.css:963\uFF09\uFF1A3s \u4E00\u6B21\uFF0C\u9996\u5C3E\u5404\u505C 15%\u3002\r\n   \u8986\u76D6 Hermes \u7684 tw-shimmer\uFF0C\u8BA9\u5DE5\u4F5C\u884C\u3001\u8FD0\u884C\u4E2D\u5DE5\u5177\u884C\u7528\u540C\u4E00\u79CD\u5149\u3002 */\r\n@keyframes cx-shimmer {\r\n  0%,\r\n  15% {\r\n    background-position: 83.333% 0;\r\n    animation-timing-function: cubic-bezier(0.714, 0.121, 0.211, 0.888);\r\n  }\r\n  85%,\r\n  100% {\r\n    background-position: 16.667% 0;\r\n  }\r\n}\r\n\r\n@keyframes cx-breathe {\r\n  0%,\r\n  100% {\r\n    filter: brightness(0.96);\r\n    transform: scale(0.86);\r\n  }\r\n  50% {\r\n    filter: brightness(1.06);\r\n    transform: scale(1);\r\n  }\r\n}\r\n\r\n@media (prefers-reduced-motion: reduce) {\r\n  :root .shimmer,\r\n  :root .cx-shimmer,\r\n  :root [data-cx-breathe] {\r\n    animation: none !important;\r\n  }\r\n}\r\n";
 
 // src/styles/transcript.css
 var transcript_default = "/* \u2500\u2500 Claude UI \xB7 transcript \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n   codex-ui \u7684\u6D88\u606F\u6D41\uFF1A\u52A9\u624B\u6B63\u6587\u4E0D\u5957\u5BB9\u5668\uFF0C\u811A\u624B\u67B6\uFF08\u601D\u8003\u3001\u5DE5\u5177\uFF09\u538B\u6210\u4E00\u884C muted \u7070\u5B57\uFF0C\r\n   \u8FD0\u884C\u4E2D\u624D\u52A0 shimmer\uFF1B\u5C42\u6B21\u9760\u989C\u8272\u800C\u4E0D\u662F\u6574\u4F53\u53D8\u6DE1\u3002 */\r\n\r\n/* \u811A\u624B\u67B6\u4E0D\u518D\u6574\u4F53\u964D\u5230 0.67 \u4E0D\u900F\u660E\u5EA6\uFF0C\u6539\u7528 muted \u989C\u8272\u5206\u5C42\uFF0Chover \u63D0\u5230 secondary */\r\n:root [data-slot='aui_assistant-message-content'] [data-conversation-scaffold],\r\n:root [data-slot='aui_background-result'] [data-conversation-scaffold],\r\n:root [data-slot='aui_background-resume'] {\r\n  opacity: 1;\r\n}\r\n\r\n:root {\r\n  --disclosure-caret-rest: 0.55;\r\n}\r\n\r\n/* \u2500\u2500 \u6587\u5B57\u9AD8\u5149\uFF1Acodex-ui \u7684 3s \u626B\u5149\uFF0C\u66FF\u6362 Hermes \u7684 tw-shimmer \u2500\u2500 */\r\n:root .shimmer:not(.shimmer-bg),\r\n:root .cx-shimmer {\r\n  --cx-st-base: var(--ui-text-secondary);\r\n  --cx-st-peak: color-mix(in srgb, var(--ui-text-secondary) 30%, white);\r\n  color: var(--cx-st-base);\r\n  background: linear-gradient(120deg, var(--cx-st-base) 37.5%, var(--cx-st-peak) 50%, var(--cx-st-base) 62.5%) 83.333% 0 / 400% 100% no-repeat;\r\n  -webkit-background-clip: text;\r\n  background-clip: text;\r\n  -webkit-text-fill-color: transparent;\r\n  animation: cx-shimmer 3s linear infinite;\r\n}\r\n\r\n:root.dark .shimmer:not(.shimmer-bg),\r\n:root.dark .cx-shimmer {\r\n  --cx-st-base: var(--ui-text-secondary);\r\n  --cx-st-peak: var(--ui-text-primary);\r\n}\r\n\r\n/* \u2500\u2500 \u7528\u6237\u6D88\u606F\uFF1A5% \u58A8\u8272\u7684\u5B9E\u8272\u6C14\u6CE1\uFF08\u5B83\u662F sticky \u7684\uFF0C\u5FC5\u987B\u4E0D\u900F\u660E\uFF09\uFF0C\u65E0\u63CF\u8FB9 \u2500\u2500 */\r\n:root .composer-human-message {\r\n  border-color: transparent;\r\n  border-radius: 8px;\r\n}\r\n\r\n:root .composer-human-message:hover {\r\n  border-color: var(--cx-line);\r\n}\r\n\r\n/* \u2500\u2500 \u601D\u8003\u5757 \u2500\u2500 */\r\n:root [data-slot='aui_thinking-disclosure'] [data-slot='aui_thinking-body'],\r\n:root [data-slot='aui_thinking-disclosure'] [data-slot='aui_reasoning-text'] {\r\n  color: var(--ui-text-tertiary);\r\n  font-style: italic;\r\n}\r\n\r\n/* \u2500\u2500 \u5DE5\u5177\u884C\uFF1A\u4E00\u884C\u7070\u5B57\u300C\u52A8\u8BCD \xB7 \u8BE6\u60C5 \xB7 \u7ED3\u679C \u203A\u300D \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */\r\n\r\n/* \u53BB\u6389\u56FE\u6807\u683C\uFF08\u8FD0\u884C\u4E2D\u7684 spinner\u3001\u6210\u529F/\u5931\u8D25\u56FE\u6807\u90FD\u5728\u8FD9\u91CC\uFF09\uFF1Bcodex-ui \u7684\u884C\u662F\u7EAF\u6587\u5B57 */\r\n:root [data-slot='tool-block'][data-tool-row] [class~='size-3.5'][class~='place-items-center'] {\r\n  display: none;\r\n}\r\n\r\n/* \u6807\u9898\u9ED8\u8BA4 muted\uFF1Bhover \u5230 secondary */\r\n:root [data-slot='tool-block'] .group\\/disclosure-row,\r\n:root [data-slot='aui_thinking-disclosure'] .group\\/disclosure-row {\r\n  color: var(--conversation-scaffold-text);\r\n}\r\n\r\n:root [data-slot='tool-block'] .group\\/disclosure-row:hover [class*='text-(--conversation-scaffold-text)'],\r\n:root [data-slot='aui_thinking-disclosure'] .group\\/disclosure-row:hover [class*='text-(--conversation-scaffold-text)'] {\r\n  color: var(--ui-text-secondary);\r\n}\r\n\r\n/* \u7BAD\u5934\u632A\u5230\u884C\u5C3E\uFF1A\u6309\u94AE\u91CC\u7684\u539F\u7BAD\u5934\u9690\u85CF\uFF0C\u7531\u6574\u884C\u7684 ::after \u753B\uFF1B\u6309\u94AE\u7684 ::before \u6491\u6EE1\u6574\u884C\uFF0C\u6574\u884C\u90FD\u80FD\u70B9 */\r\n:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\\/disclosure-row > button > span:last-child:has(> .codicon-chevron-right) {\r\n  display: none;\r\n}\r\n\r\n:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\\/disclosure-row:has(> button[aria-expanded])::after {\r\n  content: '\u203A';\r\n  order: 50;\r\n  align-self: flex-start;\r\n  width: 0.75em;\r\n  margin-left: 0.3em;\r\n  line-height: var(--conversation-line-height);\r\n  text-align: center;\r\n  color: var(--ui-text-tertiary);\r\n  opacity: var(--disclosure-caret-rest);\r\n  transition:\r\n    transform var(--cx-dur-snap) var(--cx-ease-snap),\r\n    opacity var(--cx-dur-snap) ease-out;\r\n  pointer-events: none;\r\n}\r\n\r\n:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\\/disclosure-row:hover::after {\r\n  opacity: 0.9;\r\n}\r\n\r\n:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\\/disclosure-row:has(> button[aria-expanded='true'])::after {\r\n  transform: rotate(90deg);\r\n}\r\n\r\n:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\\/disclosure-row > button[aria-expanded]::before {\r\n  content: '';\r\n  position: absolute;\r\n  inset: 0;\r\n}\r\n\r\n/* \u884C\u5C3E\u7684\u8BA1\u65F6\u3001\u8FDB\u5EA6\u3001\u65F6\u95F4\u6233\u7D27\u8DDF\u6807\u9898\uFF0C\u7528\u300C\xB7\u300D\u5206\u9694\uFF1B\u5173\u95ED\u6309\u94AE\u653E\u5230\u6700\u540E\uFF0C\u5E76\u538B\u5728\u6574\u884C\u70ED\u533A\u4E4B\u4E0A */\r\n:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\\/disclosure-row > span[class~='ml-auto'] {\r\n  order: 60;\r\n  margin-left: auto;\r\n  position: relative;\r\n  z-index: 1;\r\n}\r\n\r\n:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\\/disclosure-row > span:last-child:not([class~='ml-auto']) {\r\n  order: 40;\r\n  padding-left: 0;\r\n}\r\n\r\n:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\\/disclosure-row > span:last-child:not([class~='ml-auto']) > span:not(:empty) {\r\n  margin-left: 0.4em;\r\n}\r\n\r\n:root :is([data-slot='tool-block'], [data-slot='aui_thinking-disclosure'], [data-approval-activity]) .group\\/disclosure-row > span:last-child:not([class~='ml-auto']) > span:not(:empty)::before,\r\n:root [data-slot='tool-block'] .group\\/disclosure-row > button [class~='tabular-nums']:not(:empty):not(:has(> [class*='text-emerald-'], > [class*='text-rose-']))::before {\r\n  content: '\xB7';\r\n  margin-right: 0.4em;\r\n  color: var(--ui-text-quaternary);\r\n}\r\n\r\n/* \u8FD0\u884C\u4E2D\uFF1A\u6574\u884C secondary + \u626B\u5149\uFF08\u539F\u751F\u53EA\u95EA\u52A8\u8BCD\uFF09 */\r\n:root [data-slot='tool-block'][data-tool-row]:has(.glyph-spinner) [class*='text-(--conversation-scaffold-meta)'],\r\n:root [data-slot='tool-block'][data-tool-summary] [class*='text-(--conversation-scaffold-text)']:has(.shimmer),\r\n:root [data-tool-summary]:has(.shimmer) [class*='text-(--conversation-scaffold-text)'] {\r\n  --cx-st-base: var(--ui-text-secondary);\r\n  --cx-st-peak: color-mix(in srgb, var(--ui-text-secondary) 30%, white);\r\n  color: var(--ui-text-secondary);\r\n  background: linear-gradient(120deg, var(--cx-st-base) 37.5%, var(--cx-st-peak) 50%, var(--cx-st-base) 62.5%) 83.333% 0 / 400% 100% no-repeat;\r\n  -webkit-background-clip: text;\r\n  background-clip: text;\r\n  -webkit-text-fill-color: transparent;\r\n  animation: cx-shimmer 3s linear infinite;\r\n}\r\n\r\n:root.dark [data-slot='tool-block'][data-tool-row]:has(.glyph-spinner) [class*='text-(--conversation-scaffold-meta)'],\r\n:root.dark [data-tool-summary]:has(.shimmer) [class*='text-(--conversation-scaffold-text)'] {\r\n  --cx-st-peak: var(--ui-text-primary);\r\n}\r\n\r\n:root [data-slot='tool-block'][data-tool-row]:has(.glyph-spinner) [class*='text-(--conversation-scaffold-meta)'] .shimmer,\r\n:root [data-tool-summary]:has(.shimmer) [class*='text-(--conversation-scaffold-text)'] .shimmer {\r\n  background: none;\r\n  -webkit-text-fill-color: inherit;\r\n  animation: none;\r\n}\r\n\r\n/* \u8FD0\u884C\u4E2D\u5408\u5E76\u6210\u4E00\u884C\uFF1A\u4E0D\u663E\u793A\u5355\u884C\u6EDA\u52A8\u6761\uFF0C\u7531\u6458\u8981\u884C\u627F\u62C5 */\r\n:root [data-tool-ticker] {\r\n  display: none;\r\n}\r\n\r\n/* \u5C55\u5F00\u540E\u7684\u5361\u7247\uFF1A\u5706\u89D2 6\u30011px \u58A8\u8272\u73AF\uFF0C\u767D/\u8FD1\u9ED1\u5361\u9762 */\r\n:root [data-slot='tool-block'][data-tool-row][data-tool-open] {\r\n  border-color: var(--cx-line);\r\n  border-radius: var(--cx-radius-card);\r\n  background: var(--cx-surface) !important;\r\n}\r\n\r\n:root [data-slot='tool-block'][data-tool-row][data-tool-open] > div:first-child {\r\n  border-color: var(--cx-line);\r\n}\r\n\r\n/* \u6587\u4EF6\u6539\u52A8\u7684 +N \u2212N\uFF1Acodex-ui \u7684\u5C0F\u5FBD\u7AE0 */\r\n:root [data-slot='tool-block'] [class~='font-mono'][class~='tabular-nums']:has(> [class*='text-emerald-']) {\r\n  gap: 3px;\r\n}\r\n\r\n:root [data-slot='tool-block'] [class~='font-mono'][class~='tabular-nums'] > :is([class*='text-emerald-'], [class*='text-rose-']) {\r\n  height: 16px;\r\n  padding: 0 4px;\r\n  border-radius: 4px;\r\n  font-family: var(--dt-font-sans);\r\n  font-size: 10px;\r\n  font-weight: 500;\r\n  line-height: 16px;\r\n}\r\n\r\n:root [data-slot='tool-block'] [class~='font-mono'][class~='tabular-nums'] > [class*='text-emerald-'] {\r\n  color: var(--cx-git-add);\r\n  background: color-mix(in srgb, var(--cx-git-add) 18%, transparent);\r\n}\r\n\r\n:root [data-slot='tool-block'] [class~='font-mono'][class~='tabular-nums'] > [class*='text-rose-'] {\r\n  color: var(--cx-git-remove);\r\n  background: color-mix(in srgb, var(--cx-git-remove) 16%, transparent);\r\n}\r\n\r\n/* \u2500\u2500 \u5DE5\u4F5C\u884C\uFF1A\u6CBF\u7528 Hermes \u7684 dither \u65B9\u5757\uFF0C\u67D3\u6210\u84DD\u8272\u5E76\u52A0 codex-ui \u7684\u547C\u5438 \u2500\u2500 */\r\n:root :is([data-slot='aui_response-loading'], [data-slot='aui_turn-activity']) .dither {\r\n  color: var(--ui-accent);\r\n  opacity: 1;\r\n  animation: cx-breathe 3s ease-in-out infinite;\r\n}\r\n\r\n:root :is([data-slot='aui_response-loading'], [data-slot='aui_turn-activity']) [class*='tabular-nums'] {\r\n  color: var(--ui-text-tertiary);\r\n  font-variant-numeric: tabular-nums;\r\n}\r\n\r\n/* \u2500\u2500 \u6B63\u6587\u6392\u7248 \u2500\u2500 */\r\n:root .aui-md :not(pre) > code {\r\n  border-radius: 0.4em;\r\n  box-shadow: inset 0 0 0 0.5px var(--cx-line);\r\n}\r\n\r\n:root .aui-md [data-slot='code-card'] {\r\n  border-radius: var(--cx-radius-card);\r\n  box-shadow: inset 0 0 0 1px var(--cx-line);\r\n}\r\n\r\n:root .aui-md blockquote {\r\n  border-color: var(--cx-line-strong);\r\n  color: var(--ui-text-secondary);\r\n  font-style: normal;\r\n}\r\n\r\n:root .aui-md blockquote p::before,\r\n:root .aui-md blockquote p::after {\r\n  content: none;\r\n}\r\n\r\n:root .aui-md-table {\r\n  border-color: var(--cx-line);\r\n  border-radius: var(--cx-radius-card);\r\n}\r\n\r\n:root .aui-md a:not([data-ref]) {\r\n  color: var(--ui-accent);\r\n  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);\r\n  text-underline-offset: 3px;\r\n}\r\n\r\n:root .aui-md a:not([data-ref]):hover {\r\n  text-decoration-color: currentColor;\r\n}\r\n";
@@ -1814,7 +1970,7 @@ var plugin_default = {
     ctx2.register({ id: "quota", area: COMPOSER_AREAS.actions, order: 10, render: () => /* @__PURE__ */ jsx6(QuotaControl, {}) });
     ctx2.register({ id: "effort", area: COMPOSER_AREAS.actions, order: 20, render: () => /* @__PURE__ */ jsx6(EffortControl, {}) });
     ctx2.register({ id: "todos", area: COMPOSER_AREAS.microActions, data: todoProvider });
-    ctx2.register({ id: "rail-manager", area: TITLEBAR_AREAS.right, render: () => /* @__PURE__ */ jsx6(RailManager, {}) });
+    ctx2.register({ id: "rail-manager", area: TITLEBAR_AREAS.center, render: () => /* @__PURE__ */ jsx6(RailManager, {}) });
     bindQuota(ctx2);
     if (!ctx2.storage.get("switched", false)) {
       ctx2.storage.set("switched", true);

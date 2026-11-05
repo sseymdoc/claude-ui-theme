@@ -50,7 +50,9 @@
   display: none;
 }
 
-/* ── 会话栏 ── */
+/* ── 会话详情（Hermes 右侧栏里的标签）── */
+/* 底色同原生右侧栏面板（right-sidebar/index.tsx 的 aside）。不写 scrollbar-width：
+   Chromium 设了标准属性就不认 ::-webkit-scrollbar，全局的细滚动条才能生效 */
 :root .cx-rail {
   display: flex;
   flex-direction: column;
@@ -58,59 +60,89 @@
   height: 100%;
   overflow-y: auto;
   padding: 10px 10px 14px;
+  background: var(--ui-sidebar-surface-background);
   color: var(--ui-text-secondary);
   font-size: 12px;
   line-height: 1.45;
-  scrollbar-width: none;
 }
 
-:root .cx-rail-empty {
-  margin: 0;
-  padding: 0 4px;
-}
-
+/* 卡片外形沿用 codex-ui */
 :root .cx-card {
   border-radius: var(--cx-radius-card);
   background: var(--cx-surface);
   box-shadow: var(--cx-edge);
 }
 
+/* 卡头 28px，同原生右侧栏的区头（h-7） */
 :root .cx-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  min-height: 30px;
-  padding: 0 6px 0 10px;
+  height: 28px;
+  padding: 0 2px 0 10px;
 }
 
-/* 卡片标题沿用 Hermes 侧栏的大写分组标题 + dither 方点 */
+/* 卡片标题同 Hermes 的 SidebarPanelLabel（app/shell/sidebar-label.tsx）：大写、0.16em 字距、8px dither 方点 */
 :root .cx-card-title {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
   padding: 0;
   border: 0;
   background: none;
   color: var(--theme-primary);
   font: inherit;
   font-size: 0.64rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1;
   text-transform: uppercase;
   cursor: pointer;
 }
 
 :root .cx-card-dither {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   flex: none;
-  transition: transform var(--cx-dur-snap) var(--cx-ease-snap);
+  border-radius: 1px;
 }
 
-:root .cx-card[data-folded] .cx-card-dither {
-  transform: scale(0.7);
-  opacity: 0.6;
+/* 折叠箭头：hover 或键盘聚焦时才出现，同侧栏分组 */
+:root .cx-caret {
+  display: inline-flex;
+  color: var(--ui-text-tertiary);
+  opacity: 0;
+  transition: opacity var(--cx-dur-snap) ease-out;
+}
+
+:root .cx-card-title:is(:hover, :focus-visible) .cx-caret {
+  opacity: 1;
+}
+
+/* 空状态同原生的 PaneEmptyState：居中、大写、quaternary 色 */
+:root .cx-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 0;
+  color: var(--ui-text-quaternary);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+:root .cx-empty > .dither {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 1px;
 }
 
 :root .cx-card-body {
@@ -185,44 +217,47 @@
   border-left: 2px solid var(--cx-line-strong);
 }
 
+/* 待办同状态栈的待办行：进行中的字用主色，完成和取消变灰、不划线 */
 :root .cx-todo {
   display: flex;
+  align-items: center;
   gap: 6px;
-  align-items: baseline;
-}
-
-:root .cx-todo-glyph {
-  width: 10px;
-  flex: none;
-  color: var(--ui-text-tertiary);
-  font-size: 9px;
+  min-width: 0;
 }
 
 :root .cx-todo[data-status='in_progress'] {
   color: var(--ui-text-primary);
 }
 
-:root .cx-todo[data-status='in_progress'] .cx-todo-glyph {
-  color: var(--ui-accent);
-}
-
-:root .cx-todo[data-status='completed'] {
+:root .cx-todo:is([data-status='completed'], [data-status='cancelled']) {
   color: var(--ui-text-tertiary);
-  text-decoration: line-through;
-  text-decoration-color: var(--cx-line-strong);
 }
 
-/* 上下文占用条：分段，颜色来自 Hermes 的 --context-usage-* */
+:root .cx-todo[data-status='completed'] .cx-lead {
+  color: color-mix(in srgb, var(--ui-green) 80%, transparent);
+}
+
+:root .cx-todo[data-status='cancelled'] .cx-lead {
+  color: var(--ui-text-quaternary);
+}
+
+/* 上下文条同状态栏的上下文面板：分类按 token 占比铺满，颜色来自 Hermes 的 --context-usage-*。
+   只写 background-color：没有分类时宿主 .dither 的棋盘格才不会被盖掉 */
 :root .cx-meter {
   display: flex;
   height: 6px;
   overflow: hidden;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--ui-base) 8%, transparent);
+  border-radius: 9999px;
+  background-color: var(--ui-stroke-tertiary);
+}
+
+:root .cx-meter.dither {
+  background-color: var(--ui-bg-elevated);
 }
 
 :root .cx-meter > span {
   height: 100%;
+  min-width: 1px;
   transition: width var(--cx-dur-base) var(--cx-ease-out);
 }
 
@@ -268,54 +303,64 @@
   background: var(--cx-line-strong);
 }
 
-:root .cx-dot[data-tone='busy'] {
-  background: var(--ui-text-tertiary);
-  animation: cx-blink 1.2s ease-in-out infinite;
+/* 列表行（连接器、后台）同状态栈的行：最小 24px、6px 圆角，hover 用行底色。按钮用 SDK 的 Button */
+:root .cx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  min-width: 0;
+  margin: 0 -6px;
+  padding: 2px 6px;
+  border-radius: 6px;
 }
 
-/* 卡片里的小按钮 */
-:root :is(.cx-mini, .cx-icon) {
+:root .cx-item:hover {
+  background: var(--ui-row-hover-background);
+}
+
+:root .cx-item > .cx-ellipsis {
+  flex: 1;
+}
+
+/* 行首图标一格 14px：状态点、转圈、待办图标都放在这里，行与行对齐 */
+:root .cx-lead {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 22px;
-  border: 0;
-  border-radius: var(--cx-radius-control);
-  background: transparent;
-  color: var(--ui-text-secondary);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  transition: background-color var(--cx-dur-snap) ease-out;
+  width: 14px;
+  height: 14px;
+  flex: none;
 }
 
-:root .cx-mini {
-  padding: 0 8px;
-  box-shadow: inset 0 0 0 1px var(--cx-line);
+/* 运行中：同状态栈的 braille 转圈 */
+:root .cx-spin {
+  color: color-mix(in srgb, var(--ui-text-tertiary) 80%, transparent);
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
-:root .cx-icon {
-  width: 22px;
-  color: var(--ui-text-tertiary);
+/* 还没开始的待办：同原生 StatusPendingIcon 的虚线圈 */
+:root .cx-pending {
+  box-sizing: border-box;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 1px dashed color-mix(in srgb, var(--ui-text-tertiary) 60%, transparent);
+  border-radius: 50%;
 }
 
-:root :is(.cx-mini, .cx-icon):hover:not(:disabled) {
-  background: var(--cx-hover);
-  color: var(--ui-text-primary);
+/* 失败进程的退出码徽标，同状态栈 */
+:root .cx-exit {
+  flex: none;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ui-red) 15%, transparent);
+  color: var(--ui-red);
+  font-size: 0.58rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-:root :is(.cx-mini, .cx-icon):disabled {
-  cursor: default;
-  opacity: 0.4;
-}
-
-:root .cx-mini.cx-accent {
+:root .cx-accent {
   color: var(--ui-accent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 40%, transparent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :root .cx-dot[data-tone='busy'] {
-    animation: none;
-  }
 }

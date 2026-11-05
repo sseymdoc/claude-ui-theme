@@ -31,7 +31,8 @@ export default {
     ctx.register({ id: 'quota', area: COMPOSER_AREAS.actions, order: 10, render: () => <QuotaControl /> })
     ctx.register({ id: 'effort', area: COMPOSER_AREAS.actions, order: 20, render: () => <EffortControl /> })
     ctx.register({ id: 'todos', area: COMPOSER_AREAS.microActions, data: todoProvider })
-    ctx.register({ id: 'rail-manager', area: TITLEBAR_AREAS.right, render: () => <RailManager /> })
+    // 挂在标题栏中间槽：常驻、渲染为空。左右两槽有贡献时，宿主会在插件整页上认定「页面占用了标题栏」并藏起固定按钮。
+    ctx.register({ id: 'rail-manager', area: TITLEBAR_AREAS.center, render: () => <RailManager /> })
     bindQuota(ctx)
 
     // 首次启用时切过来一次；之后尊重用户在 设置 → 外观 里的选择。
