@@ -14,32 +14,20 @@ export const BUNDLES = {
       limited: 'Limit reached',
       ring: (name: string, percent: number) => `Plan usage: ${name} ${percent}% used`
     },
+    // 文件夹、分支、上下文用量、待办、轮次、停止、刷新、登录等用 Hermes 官方词条（useI18n），这里只放官方没有的。
+    // 标签名不叫 Session：中文下会和左侧原生的「会话」重名。
     rail: {
-      title: 'Session',
-      toggle: 'Session panel',
+      title: 'Session details',
       environment: 'Environment',
       goal: 'Goal',
-      context: 'Context',
       connectors: 'Connectors',
       background: 'Background',
-      folder: 'Folder',
-      branch: 'Branch',
-      project: 'Project',
-      gateway: 'Gateway',
-      noFolder: 'No folder',
-      noSession: 'Start a session to see its details here.',
-      noGoal: 'No goal or to-dos yet',
-      todos: (done: number, total: number) => `${done} / ${total} to-dos`,
-      turns: (used: number, max: number) => `${used} / ${max} turns`,
       compress: 'Compress',
-      signIn: 'Sign in',
-      refresh: 'Refresh',
+      compressUnavailable: "This chat's input isn't on screen. Switch to it, then compress.",
+      noSession: 'No session',
+      noGoal: 'No goal or to-dos',
       noConnectors: 'No MCP servers',
-      tools: (n: number) => `${n} tools`,
-      noBackground: 'Nothing in the background',
-      stop: 'Stop',
-      finished: 'Finished',
-      subagent: 'Subagent'
+      noBackground: 'Nothing running'
     }
   },
   zh: {
@@ -55,31 +43,17 @@ export const BUNDLES = {
       ring: (name: string, percent: number) => `套餐用量：${name} 已用 ${percent}%`
     },
     rail: {
-      title: '会话',
-      toggle: '会话面板',
+      title: '会话详情',
       environment: '环境',
       goal: '目标',
-      context: '上下文',
       connectors: '连接器',
       background: '后台',
-      folder: '文件夹',
-      branch: '分支',
-      project: '项目',
-      gateway: '网关',
-      noFolder: '未选择文件夹',
-      noSession: '开始一个会话后，这里会显示它的详情。',
-      noGoal: '还没有目标或待办',
-      todos: (done: number, total: number) => `待办 ${done} / ${total}`,
-      turns: (used: number, max: number) => `${used} / ${max} 轮`,
       compress: '压缩',
-      signIn: '登录',
-      refresh: '刷新',
+      compressUnavailable: '这个会话的输入框不在屏幕上，先切到它再压缩。',
+      noSession: '没有会话',
+      noGoal: '没有目标或待办',
       noConnectors: '没有 MCP 服务器',
-      tools: (n: number) => `${n} 个工具`,
-      noBackground: '后台没有任务',
-      stop: '停止',
-      finished: '已结束',
-      subagent: '子代理'
+      noBackground: '后台没有任务'
     }
   }
 }

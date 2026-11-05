@@ -172,16 +172,6 @@
   }
 }
 
-@keyframes cx-blink {
-  0%,
-  100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   :root .shimmer,
   :root .cx-shimmer,
