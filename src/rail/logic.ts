@@ -23,6 +23,46 @@ export function findRoute<R extends { connectionId: string; profile: string }>(o
   return routes.find(route => route.connectionId === owner.connectionId && profileKey(route.profile) === owner.profile) ?? null
 }
 
+/** 宿主的 Electron 桥上没有 getProfileRoutes 时，host.profileRoutes() 抛出的报错（sdk/index.ts）。 */
+export const ROUTING_UNAVAILABLE = 'Hermes Desktop connection routing unavailable'
+
+/** 按归属查路由并缓存（ponytail: 缓存到插件卸载，连接注册表改了要重载插件）。
+ *  - 宿主明确没有路由接口：记为 'active'，退回活动网关，和改动前一样；
+ *  - 找到路由：缓存；
+ *  - 查不到（冷启动时路由表可能还不全）或查询失败（IPC 等瞬时错误）：不缓存，下次重新查；失败原样抛出，不落回活动网关。 */
+export function routeResolver<R extends { connectionId: string; profile: string }>(profileRoutes: () => Promise<readonly R[]>) {
+  const cache = new Map<string, Promise<'active' | null | R>>()
+
+  return (owner: Owner): Promise<'active' | null | R> => {
+    const key = ownerKey(owner)
+    let pending = cache.get(key)
+
+    if (!pending) {
+      pending = profileRoutes().then(
+        list => findRoute(owner, list ?? []),
+        (error: any) => {
+          if (String(error?.message ?? error).includes(ROUTING_UNAVAILABLE)) {
+            return 'active' as const
+          }
+
+          throw error
+        }
+      )
+      cache.set(key, pending)
+      pending.then(
+        found => {
+          if (!found) {
+            cache.delete(key)
+          }
+        },
+        () => cache.delete(key)
+      )
+    }
+
+    return pending
+  }
+}
+
 export interface ContextReading {
   used: number
   max: number

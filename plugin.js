@@ -1295,8 +1295,37 @@ var ownerKey = (owner) => owner ? `${owner.connectionId}::${owner.profile}` : ""
 function isActiveOwner(owner, active) {
   return !owner || owner.connectionId === (active.connectionId ?? "") && owner.profile === profileKey(active.profile);
 }
-function findRoute(owner, routes2) {
-  return routes2.find((route) => route.connectionId === owner.connectionId && profileKey(route.profile) === owner.profile) ?? null;
+function findRoute(owner, routes) {
+  return routes.find((route) => route.connectionId === owner.connectionId && profileKey(route.profile) === owner.profile) ?? null;
+}
+var ROUTING_UNAVAILABLE = "Hermes Desktop connection routing unavailable";
+function routeResolver(profileRoutes) {
+  const cache = /* @__PURE__ */ new Map();
+  return (owner) => {
+    const key = ownerKey(owner);
+    let pending = cache.get(key);
+    if (!pending) {
+      pending = profileRoutes().then(
+        (list) => findRoute(owner, list ?? []),
+        (error) => {
+          if (String(error?.message ?? error).includes(ROUTING_UNAVAILABLE)) {
+            return "active";
+          }
+          throw error;
+        }
+      );
+      cache.set(key, pending);
+      pending.then(
+        (found) => {
+          if (!found) {
+            cache.delete(key);
+          }
+        },
+        () => cache.delete(key)
+      );
+    }
+    return pending;
+  };
 }
 function contextReading(usage, breakdown) {
   const source = breakdown?.context_max > 0 ? breakdown : usage;
@@ -1361,28 +1390,18 @@ var todoProvider = {
 var $info = atom2({});
 var $owner = host3.state.focusedSessionOwner ?? atom2(null);
 var activeGateway = () => ({ connectionId: host3.state.connectionId.get(), profile: host3.state.profile.get() });
-var routes = /* @__PURE__ */ new Map();
+var resolveRoute = routeResolver(() => host3.profileRoutes());
 async function rpc(owner, method, params, foreground = false) {
   const canRoute = typeof host3.requestProfile === "function" && typeof host3.profileRoutes === "function";
   if (!canRoute || isActiveOwner(owner, activeGateway())) {
     return host3.request(method, params);
   }
-  const key = ownerKey(owner);
-  let route = routes.get(key);
-  if (!route) {
-    route = host3.profileRoutes().then(
-      (list) => findRoute(owner, list ?? []),
-      () => "active"
-    );
-    routes.set(key, route);
-    void route.then((found2) => found2 || routes.delete(key));
-  }
-  const found = await route;
+  const found = await resolveRoute(owner);
   if (found === "active") {
     return host3.request(method, params);
   }
   if (!found) {
-    throw new Error(`claude-ui: no gateway route for ${key}`);
+    throw new Error(`claude-ui: no gateway route for ${ownerKey(owner)}`);
   }
   return foreground ? host3.requestProfile(found, method, params, void 0, { spawnPriority: "foreground" }) : host3.requestProfile(found, method, params);
 }

@@ -24,12 +24,12 @@ import { PLUGIN_ID, pluginContext, useThemeActive } from '../state'
 
 import {
   contextReading,
-  findRoute,
   isActiveOwner,
   lingering,
   type Owner,
   ownerKey,
   processState,
+  routeResolver,
   segments,
   subagentRunning
 } from './logic'
@@ -60,8 +60,8 @@ const $info = atom<Record<string, { cwd?: string; branch?: null | string; projec
 // 旧版桌面端没有 focusedSessionOwner：当作归属未知
 const $owner = host.state.focusedSessionOwner ?? atom<null | Owner>(null)
 const activeGateway = () => ({ connectionId: host.state.connectionId.get(), profile: host.state.profile.get() })
-// ponytail: 路由按归属缓存到插件卸载，连接注册表改了要重载插件；没找到的不缓存（冷启动时路由表可能还不全）
-const routes = new Map<string, Promise<any>>()
+// 缓存策略见 routeResolver：只有宿主明确没有路由接口时才退回活动网关，查询失败不缓存
+const resolveRoute = routeResolver(() => host.profileRoutes())
 
 /** 归属未知、就是活动网关、宿主没有路由入口时走 host.request；归属明确却找不到路由时报错，不落回活动网关。 */
 async function rpc<T = any>(owner: null | Owner, method: string, params: Record<string, unknown>, foreground = false): Promise<T> {
@@ -71,27 +71,14 @@ async function rpc<T = any>(owner: null | Owner, method: string, params: Record<
     return host.request(method, params)
   }
 
-  const key = ownerKey(owner)
-  let route = routes.get(key)
-
-  if (!route) {
-    // 旧 Electron 没有 getProfileRoutes 时 profileRoutes 会抛错：退回活动网关，和改动前一样
-    route = host.profileRoutes().then(
-      (list: any[]) => findRoute(owner!, list ?? []),
-      () => 'active'
-    )
-    routes.set(key, route)
-    void route.then(found => found || routes.delete(key))
-  }
-
-  const found = await route
+  const found = await resolveRoute(owner!)
 
   if (found === 'active') {
     return host.request(method, params)
   }
 
   if (!found) {
-    throw new Error(`claude-ui: no gateway route for ${key}`)
+    throw new Error(`claude-ui: no gateway route for ${ownerKey(owner)}`)
   }
 
   return foreground

@@ -7,6 +7,8 @@ import {
   isActiveOwner,
   lingering,
   processState,
+  ROUTING_UNAVAILABLE,
+  routeResolver,
   segments,
   subagentRunning
 } from '../src/rail/logic.ts'
@@ -108,4 +110,50 @@ test('路由：按 connectionId 和规范化后的桌面端 profile 找，不看
   assert.equal(findRoute({ connectionId: 'local', profile: 'default' }, routes), routes[0])
   assert.equal(findRoute({ connectionId: 'box', profile: 'default' }, routes), routes[1])
   assert.equal(findRoute({ connectionId: 'box', profile: 'ops' }, routes), null)
+})
+
+test('路由缓存：查询瞬时失败时不退回活动网关，也不缓存，下次重新查', async () => {
+  const route = { connectionId: 'box', profile: 'work', targetProfile: 'work' }
+  const owner = { connectionId: 'box', profile: 'work' }
+  let calls = 0
+
+  const resolve = routeResolver(async () => {
+    calls += 1
+
+    if (calls === 1) {
+      throw new Error('IPC timeout')
+    }
+
+    return [route]
+  })
+
+  await assert.rejects(resolve(owner), /IPC timeout/)
+  assert.equal(await resolve(owner), route)
+  assert.equal(await resolve(owner), route)
+  assert.equal(calls, 2)
+})
+
+test('路由缓存：宿主没有路由接口时退回活动网关并缓存；查不到的不缓存', async () => {
+  const owner = { connectionId: 'box', profile: 'work' }
+  let unsupportedCalls = 0
+  let missingCalls = 0
+
+  const unsupported = routeResolver(async () => {
+    unsupportedCalls += 1
+    throw new Error(ROUTING_UNAVAILABLE)
+  })
+
+  assert.equal(await unsupported(owner), 'active')
+  assert.equal(await unsupported(owner), 'active')
+  assert.equal(unsupportedCalls, 1)
+
+  const missing = routeResolver(async () => {
+    missingCalls += 1
+
+    return []
+  })
+
+  assert.equal(await missing(owner), null)
+  assert.equal(await missing(owner), null)
+  assert.equal(missingCalls, 2)
 })
