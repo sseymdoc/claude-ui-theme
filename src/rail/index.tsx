@@ -565,7 +565,7 @@ export function Rail() {
 // ── 管理器：挂在标题栏中间槽（常驻挂载点，渲染为空），本主题激活时把会话详情注册为原生右侧栏里的一个标签 ──
 export function RailManager() {
   const active = useThemeActive()
-  const { locale } = useI18n()
+  const { locale, t } = useI18n()
   const pt = usePluginI18n(PLUGIN_ID)
   const ctx = pluginContext()
 
@@ -603,6 +603,27 @@ export function RailManager() {
     }
 
     return dispose
+  }, [active, locale])
+
+  // 恢复入口：Hermes 换布局预设时按「原来的同组面板」安置没列出的面板（tree/store.ts adoptMissingPanes），
+  // Quad 等预设把「会话」和「文件」叠在一组，会话详情就被带进左侧栏；SDK 没有移动面板的接口，enforce 每次启动才执行一次。
+  // 这个按钮无论它在哪个区都能把它显示出来（展开所在侧栏、取消隐藏、切到前台）。
+  // ponytail: 只显示不归位，重启 Hermes 才回到「文件」旁边；宿主给出移动面板的接口后改成归位
+  useEffect(() => {
+    if (!active || !ctx || typeof host.revealPane !== 'function') {
+      return
+    }
+
+    return ctx.register({
+      id: 'rail-reveal',
+      area: 'titleBar.tools.right',
+      data: {
+        id: 'claude-ui-rail',
+        label: t.zones.showStripTab(pt('rail.title')),
+        icon: <Codicon className="leading-none" name="info" size="13.9px" />,
+        onSelect: () => host.revealPane(RAIL_ID)
+      }
+    })
   }, [active, locale])
 
   useEffect(() => (active ? bindRailEvents() : undefined), [active])

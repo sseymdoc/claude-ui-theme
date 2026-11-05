@@ -1699,7 +1699,7 @@ function Rail() {
 }
 function RailManager() {
   const active = useThemeActive();
-  const { locale } = useI18n3();
+  const { locale, t } = useI18n3();
   const pt = usePluginI18n3(PLUGIN_ID);
   const ctx2 = pluginContext();
   useEffect5(() => {
@@ -1728,6 +1728,21 @@ function RailManager() {
       host3.undismissPane(RAIL_ID);
     }
     return dispose;
+  }, [active, locale]);
+  useEffect5(() => {
+    if (!active || !ctx2 || typeof host3.revealPane !== "function") {
+      return;
+    }
+    return ctx2.register({
+      id: "rail-reveal",
+      area: "titleBar.tools.right",
+      data: {
+        id: "claude-ui-rail",
+        label: t.zones.showStripTab(pt("rail.title")),
+        icon: /* @__PURE__ */ jsx5(Codicon, { className: "leading-none", name: "info", size: "13.9px" }),
+        onSelect: () => host3.revealPane(RAIL_ID)
+      }
+    });
   }, [active, locale]);
   useEffect5(() => active ? bindRailEvents() : void 0, [active]);
   return null;
