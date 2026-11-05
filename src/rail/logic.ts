@@ -38,16 +38,19 @@ export function routeResolver<R extends { connectionId: string; profile: string 
     let pending = cache.get(key)
 
     if (!pending) {
-      pending = profileRoutes().then(
-        list => findRoute(owner, list ?? []),
-        (error: any) => {
-          if (String(error?.message ?? error).includes(ROUTING_UNAVAILABLE)) {
-            return 'active' as const
-          }
+      // 经 Promise.resolve().then 调用：profileRoutes 同步抛错也按失败处理
+      pending = Promise.resolve()
+        .then(profileRoutes)
+        .then(
+          list => findRoute(owner, list ?? []),
+          (error: any) => {
+            if (String(error?.message ?? error).includes(ROUTING_UNAVAILABLE)) {
+              return 'active' as const
+            }
 
-          throw error
-        }
-      )
+            throw error
+          }
+        )
       cache.set(key, pending)
       pending.then(
         found => {

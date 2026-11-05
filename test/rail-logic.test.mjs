@@ -157,3 +157,19 @@ test('路由缓存：宿主没有路由接口时退回活动网关并缓存；�
   assert.equal(await missing(owner), null)
   assert.equal(missingCalls, 2)
 })
+
+test('路由缓存：profileRoutes 同步抛错也按失败处理', async () => {
+  const owner = { connectionId: 'box', profile: 'work' }
+
+  const unsupported = routeResolver(() => {
+    throw new Error(ROUTING_UNAVAILABLE)
+  })
+
+  assert.equal(await unsupported(owner), 'active')
+
+  const broken = routeResolver(() => {
+    throw new Error('boom')
+  })
+
+  await assert.rejects(broken(owner), /boom/)
+})

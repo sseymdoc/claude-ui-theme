@@ -1305,7 +1305,7 @@ function routeResolver(profileRoutes) {
     const key = ownerKey(owner);
     let pending = cache.get(key);
     if (!pending) {
-      pending = profileRoutes().then(
+      pending = Promise.resolve().then(profileRoutes).then(
         (list) => findRoute(owner, list ?? []),
         (error) => {
           if (String(error?.message ?? error).includes(ROUTING_UNAVAILABLE)) {
@@ -1650,7 +1650,7 @@ function BackgroundCard({ sessionId }) {
   );
   const subagents = useRpc("subagent.list", { session_id: sessionId });
   const [seen] = useState5(() => /* @__PURE__ */ new Map());
-  const [, rerender] = useReducer((n) => n + 1, 0);
+  const [tick, rerender] = useReducer((n) => n + 1, 0);
   const rows = (processes.data?.processes ?? []).map((p) => ({
     id: String(p.session_id),
     state: processState(p),
@@ -1666,7 +1666,7 @@ function BackgroundCard({ sessionId }) {
     }
     const timer = setTimeout(rerender, Math.max(0, next - Date.now()));
     return () => clearTimeout(timer);
-  }, [next]);
+  }, [next, tick]);
   const stopProcess = (id) => rpc(owner, "process.kill", { process_id: id, session_id: sessionId }, true).catch(() => void 0).finally(() => processes.refetch());
   const stopSubagent = (id) => rpc(owner, "subagent.interrupt", { session_id: sessionId, subagent_id: id }, true).then((result) => result?.found ? host3.notify({ kind: "info", message: t.agents.stopRequested }) : Promise.reject()).catch(() => host3.notify({ kind: "error", message: t.agents.requestRejected })).finally(() => subagents.refetch());
   return /* @__PURE__ */ jsxs5(Card, { id: "background", title: pt("rail.background"), children: [

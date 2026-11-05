@@ -478,7 +478,7 @@ function BackgroundCard({ sessionId }: { sessionId: string }) {
 
   const subagents = useRpc('subagent.list', { session_id: sessionId })
   const [seen] = useState(() => new Map<string, number>())
-  const [, rerender] = useReducer((n: number) => n + 1, 0)
+  const [tick, rerender] = useReducer((n: number) => n + 1, 0)
 
   const rows = (processes.data?.processes ?? []).map((p: any) => ({
     id: String(p.session_id),
@@ -491,7 +491,8 @@ function BackgroundCard({ sessionId }: { sessionId: string }) {
   const live = (subagents.data?.subagents ?? []).filter((sub: any) => subagentRunning(sub.status))
   const s = t.statusStack
 
-  // 结束的行到期后重渲染一次，把它移走
+  // 结束的行到期后重渲染一次，把它移走。依赖里带 tick：计时器若比 Date.now() 早几毫秒触发，
+  // next 不变也会按剩余时间重新排一次，行不会一直留着
   useEffect(() => {
     if (next === null) {
       return
@@ -500,7 +501,7 @@ function BackgroundCard({ sessionId }: { sessionId: string }) {
     const timer = setTimeout(rerender, Math.max(0, next - Date.now()))
 
     return () => clearTimeout(timer)
-  }, [next])
+  }, [next, tick])
 
   const stopProcess = (id: string) =>
     rpc(owner, 'process.kill', { process_id: id, session_id: sessionId }, true)
